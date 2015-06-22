@@ -4,7 +4,7 @@ nucl.ai Workshops 2015
 Installation & Dependencies
 ---------------------------
 
-1. Download and Install Anaconda Python distribution 
+1. Download and Install Anaconda Python distribution (preferable is Python 3.4)
     http://continuum.io/downloads
 2. Install MingGW and libpython
     conda install mingw libpython
