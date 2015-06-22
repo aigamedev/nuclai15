@@ -1,6 +1,18 @@
 nucl.ai Workshops 2015
 ======================
 
+Installation & Dependencies
+---------------------------
+
+1. Download and Install Anaconda Python distribution 
+    http://continuum.io/downloads
+2. Install MingGW and libpython
+    conda install mingw libpython
+3. Install scikit-neuralnetwork
+    pip install scikit-neuralnetwork
+
+
+
 This repository contains the source code and data to participate in the workshops at the nucl.ai Conference 2015.  Programs should work on Windows, Linux and Mac OSX with either Python 2.7 or Python 3.4.
 
 You'll find multiple folders here:
