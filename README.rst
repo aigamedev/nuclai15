@@ -10,6 +10,9 @@ Installation & Dependencies
     conda install mingw libpython
 3. Install scikit-neuralnetwork
     pip install scikit-neuralnetwork
+4. Make sure **sknn** package is on your PYTHONPATH
+    set PYTHONPATH=%PYTHONPATH%;<Anacoda installation folder>\\Lib\\site-packages\\sknn (for Windows)
+    export PYTHONPATH=$PYTHONPATH:<Anacoda installation folder>\\Lib\\site-packages\\sknn (for Linux and OSX)
 
 
 
