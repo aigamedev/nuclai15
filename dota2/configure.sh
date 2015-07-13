@@ -1,0 +1,1 @@
+export PYTHONPATH=.:/home/ssamot/projects/github/scikit-neuralnetwork
