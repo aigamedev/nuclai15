@@ -21,15 +21,15 @@ def window_stack(a, stepsize=1, width=3):
 def get_linear_clf():
     lr = LinearRegression(n_jobs=2);
     #lr = Lasso()
-    clf = make_pipeline(OneHotEncoder(categorical_features = [0],  sparse = False), MinMaxScaler(), lr)
+    clf = make_pipeline(OneHotEncoder(categorical_features = [0],  sparse = False), MinMaxScaler(feature_range=(-0.5,0.5)), lr)
     return clf
 
 def get_nn_clf():
     nn  = Regressor(
         layers=[
             # Convolution("Rectifier", channels=10, pool_shape=(2,2), kernel_shape=(3, 3)),
-           Layer('Maxout', units=20, pieces=2),
-           Layer('Maxout', units=20, pieces=2),
+           Layer('Maxout', units=300, pieces=2),
+           Layer('Maxout', units=300, pieces=2),
             Layer('Linear')],
         learning_rate=0.01,
         learning_rule='adagrad',
@@ -57,21 +57,31 @@ def preprocess_data():
         print "Processing hero_id", hero_id
         # find all the hero movement
         hero_df = df[(df.hero_id == hero_id)].sort("timestamp")
-        positions = hero_df[["position_x","position_y"]]
-        slided_window = window_stack(positions,width = 10)
-        #print slided_window
-        #exit()
-        hero_X = np.ones((slided_window.shape[0],slided_window.shape[1]+1))
-        hero_X[:,1:] = slided_window
+        positions = hero_df[["timestamp","position_x","position_y"]].values
+        width = 10
+        #print positions
+        slided_window = window_stack(positions[:,1:],width = width)
+        timestamps = window_stack(positions[:,0:1],width = width)
+        opp_pos_time =  timestamps[:,-1]
+
+        opps_df = df[(df.timestamp.isin( opp_pos_time))]
+        opps_df = opps_df[(opps_df.hero_id != hero_id)].sort(["timestamp", "hero_id"])
+
+        opps_positions = opps_df[["position_x","position_y"]].values
+        other_coords_shape = 9 * 2
+        slided_positions = opps_positions.reshape(len(opp_pos_time),other_coords_shape)
+
+        hero_X = np.ones((slided_window.shape[0],slided_window.shape[1]+other_coords_shape + 1))
+        hero_X[:,1:19] = slided_positions
+        hero_X[:,19:] = slided_window
         # diffs
         #hero_X = np.diff(hero_X, n=1, axis=-1)
 
 
         hero_X[:,0] = hero_df["hero_id"].values[:len(slided_window)]
-        hero_y = hero_X[:,-2:] - hero_X[:,-4:-2]
-
-
-
+        hero_y = hero_X[:,-2:]
+        hero_y = MinMaxScaler(feature_range=(-1,1)).fit_transform(hero_y)
+        print hero_y
 
         hero_X = np.delete(hero_X,[hero_X.shape[1]-1,hero_X.shape[1]-2 ], 1)
 
@@ -100,10 +110,13 @@ def preprocess_data():
         Xs.append(hero_X)
         ys.append(hero_y)
 
-    X = np.concatenate(Xs)[:15000]
-    y = np.concatenate(ys)[:15000]
+    X = np.concatenate(Xs)
+    y = np.concatenate(ys)
     print X.shape, y.shape
     return X, y
+
+
+
 
 def main():
     X,y = preprocess_data()
@@ -111,8 +124,8 @@ def main():
     dummy_clf.fit(X, y)
     y_hat = dummy_clf.predict(y)
 
-    print "Dummy MSE x", r2_score(y[:,0], y_hat[:,0])
-    print "Dummy MSE y", r2_score(y[:,1], y_hat[:,1])
+    print "Dummy MSE x", mse(y[:,0], y_hat[:,0])
+    print "Dummy MSE y", mse(y[:,1], y_hat[:,1])
 
 
     ss = ShuffleSplit(len(y), n_iter=5, random_state=0)
@@ -121,15 +134,15 @@ def main():
     scores_y = []
     for i, (train_index, test_index) in enumerate(ss):
         #print "Shuffle", i
-        #clf = get_linear_clf()
-        clf = get_nn_clf()
+        clf = get_linear_clf()
+        #clf = get_nn_clf()
         clf.fit(X[train_index], y[train_index])
         y_hat = clf.predict(X[test_index])
 
-        score_x = r2_score(y[test_index,0], y_hat[:,0])
-        score_y = r2_score(y[test_index,1], y_hat[:,1])
+        score_x = mse(y[test_index,0], y_hat[:,0])
+        score_y = mse(y[test_index,1], y_hat[:,1])
 
-        #print clf.steps[-1][1].coef_,clf.steps[-1][1].intercept_
+        print clf.steps[-1][1].coef_,clf.steps[-1][1].intercept_
 
         scores_x.append(score_x)
         scores_y.append(score_y)
