@@ -62,6 +62,7 @@ $endif$
 $if(tables)$
 \usepackage{longtable,booktabs}
 \usepackage{caption}
+
 % These lines are needed to make table captions work with longtable:
 \makeatletter
 \def\fnum@table{\tablename~\thetable}
@@ -81,6 +82,7 @@ $if(graphics)$
 % using explicit options in \includegraphics[width, height, ...]{}
 \setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
 $endif$
+\usepackage{bm}
 
 % Comment these out if you don't want a slide with just the
 % part/section/subsection/subsubsection title:

@@ -20,8 +20,9 @@ theme: bjeldbak
 * What you will need: 
 	* A Laptop, almost everything tested in Mac/Linux, NOT windows
 	* A working python installation
-	* Clone this repo: **git@github.com:aigamedev/dota2.git**
+	* Clone this repo: **https://github.com/aigamedev/nuclai15**
 	* Make sure you can run train.py (i.e. see which imports are failing and get them with pip)
+	* Most import imports: **pandas, scikit-learn, scikit-learn, scikit-neuralnetwork**
 
 ## The problem
 * Let's assume you have access to real game logs, i.e. data generated through human game-plays
@@ -62,7 +63,7 @@ agent landing from state $s$ to state $s'$ after taking $a$
 
 
 ## Real games 
-* Real games often have a very large amount of actions and states
+* Real games often have a very large action and state spaces
 * We can keep track of what players are doing
 * ...but even for the simplest of cases learning a direct mapping is impossible
 * Hence, the need to approximate (more on this later...)
@@ -72,7 +73,7 @@ agent landing from state $s$ to state $s'$ after taking $a$
 * "Given that a player is acting optimally, can we copy her behaviour?"
 * We are not going to cover this here, but it's worth discussing it
 * Why does it even make sense? 
-	* Is it more concise to learn $R*$ compared with $\pi$
+	* Is it more concise to learn $R*$ compared with $\pi$?
 	* Need for assumptions over the possible class of policies
 
 ## Behavioural/Supervised learning
@@ -91,18 +92,18 @@ agent landing from state $s$ to state $s'$ after taking $a$
 
 ## Reinforcement Learning
 * Not covered
-	* ... but you can possibly treat action sequences as some kind of exploration policy 
+	* ... but you can possibly treat action sequences as some kind of if implicit policy 
 	* ... and try to learn a value function
-		* "What is the expected "
+		* "What is the the average sum of expected rewards at state x?"
 * With off-policy learning you might event attempt to learn a better policy than the one actually being executed!
-	* Search for Q-Learning for more
+	* Search Q-Learning for more
 
 # The workshop
 
 ## The workshop  
-* Clone this repo: git@github.com:aigamedev/dota2.git
+* Clone this repo: **https://github.com/aigamedev/nuclai15**
 * Run train.py 
-* It would make a nice ipython workshop, but since I am not sure how many of you have ipython setup, it's python only
+* Make sure you don't miss imports
 
 ## The Data pipeline 
 * Define the problem
@@ -119,32 +120,38 @@ agent landing from state $s$ to state $s'$ after taking $a$
 ## Problem definition
 * Everything we discussed until now
 * ...find what the agent is going to go next
+* Define 3 actions per axis
+* Concentrate ONLY on movement, i.e. where am I going to move next?
+	* Re-create the Markov Property using 10 past (x,y) observations
+	* Use other player positions
+	* Let's see some code
 
 ## Data collection
 * You will need some kind of in-game probe
 * Sensors on a player
 * Logs from some source
-* For DOTA there are online matches in the 
+* For DOTA there are online matches
 
 ## Data Munging (1)
 * Key tools: Pandas, numpy, scipy
 * Create CSV for further pre-processing
 * extract_data_vectors.py
+* You can run it, but it requires a game log .dem file
 
 
 ## Metric Selection - Algorithm selection
 * Inside train.py
 * Let's have a look
+* Mean Squared Error is our selected metric - but it's not the optimal
 
 
 ## From Linear Regressors to Neural Networks
 
-* Regressor in the form $y_w(\theta) = w_0 * \theta_0 + w_1 * \theta_1 + ... + w_n * \theta_n$
-	* Learn $w$
-* Regressor in the form of 
-
-## Neural Networks
-
+* Regressor in the form $y_w(\theta) = w_0 \theta_0 + w_1  \theta_1 + ... + w_k  \theta_k + b$
+	* Equivalently $y_w(\theta) = \bm{w\theta} + \bm{b}$
+	* Learn $\bm{w}$
+* Nested $y_w(\theta) = \bm{w^n}( max(0, \bm{w^{n-1}}(max(0,...) + \bm{b^{n-1}})) + \bm{b^n}$ 
+	* Learn $\bm{w}$
 
 
 ## Modern tricks of the trade
@@ -158,23 +165,19 @@ agent landing from state $s$ to state $s'$ after taking $a$
 * **Most of these have equivalents in sklearn-neuralnetwork**
 
 
-## Dota 2
-* Predict where a player is going to move next using Regression
-* Re-create the Markov Property using 10 past (x,y) observations
-* Let's see some code
 
 
-## 4 Tasks
-* Extract the data from the .dem file
+
+## Workshop Tasks
 * Run experiments using a dummy classifier
 * Run experiments using a Linear Classifier
 * Run experiments using a Neural network
+* Change the metric to "accuracy score"
 * Each run should get you progressively better results
-
-## 2 Exercises
 * Move some of the pre-processing to a different CSV file and load this (e.g., past examples)
 * Change network architecture (e.g., number of neurons) and re-run the experiments
 * Change train.py to save the classifier to a file (using python pickle)
+
 
 
 
