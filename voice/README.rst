@@ -1,11 +1,17 @@
 Dependencies
 ============
 
-Install underlying system modules::
+PyAudio provides underlying system access::
 
   * Windows http://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio
   * Linux ``sudo apt-get install python3-pyaudio`` or ``python-pyaudio`` 
   * OSX http://people.csail.mit.edu/hubert/pyaudio/#downloads
+
+**Windows Only**: API access from Python for voice synthesis::
+
+  * Windows http://www.lfd.uci.edu/~gohlke/pythonlibs/#pywin32
+  * Run ``pip.exe install *.whl`` on the file you downloaded.
+  * Execute ``python.exe Scripts\pywin32_postinstall.py -install`` (as Admin)
 
 Python packages that are required::
 

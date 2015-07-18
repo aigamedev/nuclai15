@@ -1,3 +1,5 @@
+import voice
+
 import speech_recognition as sr
 r = sr.Recognizer()
 r.energy_threshold = 1000
@@ -9,5 +11,7 @@ with sr.Microphone() as source:             # use the default microphone as the 
 print("Received: %3.1f" % (len(audio.data) / float(audio.rate)))
 try:
     print("Recognized:\n\n\t" + r.recognize(audio))  # recognize speech using Google Speech Recognition
+    voice.say("OK, understood!")
 except LookupError:
     print("Error: could not understand audio.")      # speech is unintelligible
+    voice.say("Didn't quite catch that.")
