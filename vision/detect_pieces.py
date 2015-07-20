@@ -3,8 +3,10 @@ import glob
 import pickle
 
 import numpy
+import scipy.misc
 from sknn.backend import pylearn2
 from sknn import mlp
+
 
 from dataset import Dataset
 
