@@ -1,9 +1,11 @@
-import bz2
+import bz2file as bz2
 import glob
 import pickle
 
 import numpy
+import scipy.misc
 from sknn.backend import pylearn2
+from dataset import Dataset
 from sknn import mlp
 
 
@@ -11,7 +13,9 @@ train_none = glob.glob('data/*/placed?/*.png') + glob.glob('data/*/none/*.png')
 train_red = glob.glob('data/*/red/*.png')
 train_yellow = glob.glob('data/*/yellow/*.png')
 
-print("Found total of %i files:" % len(train_none)+len(train_red)+len(train_yellow))
+print len(train_none)+len(train_red)+len(train_yellow)
+
+print("Found total of %i files:" % (len(train_none)+len(train_red)+len(train_yellow)))
 print("  - %i no trains," % len(train_none))
 print("  - %i red trains," % len(train_red))
 print("  - %i yellow ones.\n" % len(train_yellow))

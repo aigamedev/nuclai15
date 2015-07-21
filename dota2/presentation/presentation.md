@@ -22,7 +22,7 @@ theme: bjeldbak
 	* A working python installation
 	* Clone this repo: **https://github.com/aigamedev/nuclai15**
 	* Make sure you can run train.py (i.e. see which imports are failing and get them with pip)
-	* Most import imports: **pandas, scikit-learn, scikit-learn, scikit-neuralnetwork**
+	* Most important imports: **pandas, scikit-learn, scikit-neuralnetwork**
 
 ## The problem
 * Let's assume you have access to real game logs, i.e. data generated through human game-plays
@@ -73,7 +73,7 @@ agent landing from state $s$ to state $s'$ after taking $a$
 * "Given that a player is acting optimally, can we copy her behaviour?"
 * We are not going to cover this here, but it's worth discussing it
 * Why does it even make sense? 
-	* Is it more concise to learn $R*$ compared with $\pi$?
+	* Is it more concise to learn $R^$ compared with $\pi$?
 	* Need for assumptions over the possible class of policies
 
 ## Behavioural/Supervised learning
@@ -103,7 +103,8 @@ agent landing from state $s$ to state $s'$ after taking $a$
 ## The workshop  
 * Clone this repo: **https://github.com/aigamedev/nuclai15**
 * Run train.py 
-* Make sure you don't miss imports
+* Make sure you you can run everything
+* We now essentially have a supervised learning problem
 
 ## The Data pipeline 
 * Define the problem
