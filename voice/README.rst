@@ -15,7 +15,7 @@ PyAudio provides underlying system access::
 
 Python packages that are required::
 
-  > pip install nltk speech_recognition
+  > pip install nltk SpeechRecognition
 
 
 Models & Corpora
