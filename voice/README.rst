@@ -4,8 +4,9 @@ Dependencies
 PyAudio provides underlying system access::
 
   * Windows http://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio
-  * Linux ``sudo apt-get install python3-pyaudio`` or ``python-pyaudio`` 
+  * Linux ``sudo apt-get install python3-pyaudio`` or ``python-pyaudio``
   * OSX http://people.csail.mit.edu/hubert/pyaudio/#downloads
+    (it seems you need `flac` installed with homebrew for that to work - `brew install flac`)
 
 **Windows Only**: API access from Python for voice synthesis::
 
