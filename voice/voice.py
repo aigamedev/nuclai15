@@ -8,4 +8,4 @@ if 'win32' in sys.platform:
 if 'darwin' in sys.platform:
 	import subprocess
 	def say(phrase):
-		subprocess.call(['/usr/bin/say', message]) # -v Zarvox
+		subprocess.call(['/usr/bin/say', phrase]) # -v Zarvox
