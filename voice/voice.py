@@ -8,4 +8,5 @@ if 'win32' in sys.platform:
 if 'darwin' in sys.platform:
 	import subprocess
 	def say(phrase):
-		subprocess.call(['/usr/bin/say', phrase]) # -v Zarvox
+		# subprocess.call(['/usr/bin/say', '-v', 'Victoria', phrase]) <-- US english speaking voice
+		subprocess.call(['/usr/bin/say', phrase])
