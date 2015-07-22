@@ -73,7 +73,7 @@ agent landing from state $s$ to state $s'$ after taking $a$
 * "Given that a player is acting optimally, can we copy her behaviour?"
 * We are not going to cover this here, but it's worth discussing it
 * Why does it even make sense? 
-	* Is it more concise to learn $R^$ compared with $\pi$?
+	* Is it more concise to learn $R^*$ compared with $\pi$?
 	* Need for assumptions over the possible class of policies
 
 ## Behavioural/Supervised learning
@@ -178,7 +178,3 @@ agent landing from state $s$ to state $s'$ after taking $a$
 * Move some of the pre-processing to a different CSV file and load this (e.g., past examples)
 * Change network architecture (e.g., number of neurons) and re-run the experiments
 * Change train.py to save the classifier to a file (using python pickle)
-
-
-
-
