@@ -9,7 +9,7 @@ from smoke.replay.const import Data
 import pandas as pd
 import config
 
-with io.open('1481687622.dem', 'rb') as infile:
+with io.open('../../1394473652.dem', 'rb') as infile:
     demo_io = io_wrp_dm.Wrap(infile)
     demo_io.bootstrap()
 
@@ -25,7 +25,9 @@ with io.open('1481687622.dem', 'rb') as infile:
     game_status_index = game_meta_tables.by_name['dota_gamerules_data.m_nGameState']
     
     points = []
+
     time_offset = None
+    done = True
     for i, match in enumerate(demo.play()):
         game_meta = match.entities.by_cls[class_info['DT_DOTAGamerulesProxy']][0].state
         current_game_status = game_meta.get(game_status_index)
@@ -36,6 +38,12 @@ with io.open('1481687622.dem', 'rb') as infile:
         current_data = world_data[0].state
 
         npc_info_table = match.recv_tables.by_dt['DT_DOTA_BaseNPC']
+
+        #if done:
+        #    for i in npc_info_table:
+        #        print(i.name)
+
+        #done = False
 
         position_offset_x = npc_info_table.by_name['m_cellX']
         position_offset_y = npc_info_table.by_name['m_cellY']
@@ -64,10 +72,14 @@ with io.open('1481687622.dem', 'rb') as infile:
                 if hero_handle:
                     hero = match.entities.by_ehandle[hero_handle].state
 
+                    orientation_y = hero.get(npc_info_table.by_name['m_angRotation[1]'])
+
                     x = hero.get(position_offset_x) + hero.get(position_origin_v)[0] / 128.
                     y = hero.get(position_offset_y) + hero.get(position_origin_v)[1] / 128.
-                    #print(hero_handle)
-                    data_vector = (time,hero_handle,x,y)
+
+
+                    data_vector = (time, hero_handle, x, y, orientation_y,
+                        hero.get(position_offset_x), hero.get(position_origin_v)[0] / 128., hero.get(position_offset_y), hero.get(position_origin_v)[1] / 128., team_id)
                     #print(data_vector)
                     points.append(data_vector)
 
@@ -94,7 +106,7 @@ with io.open('1481687622.dem', 'rb') as infile:
             break
 
 
-    df = pd.DataFrame(points, columns=["timestamp","hero_id","position_x","position_y"])
+    df = pd.DataFrame(points, columns=["timestamp","hero_id","position_x","position_y", "orientation", "origin_x", "offset_x", "origin_y", "offset_y", "team_id"])
     df.to_csv(config.data_file, index=None)
 
 
