@@ -42,8 +42,6 @@ class Application(object):
             else: self.data[hero_id] = [coordinates]
             if not hero_id in self.user_team_lookup: self.user_team_lookup[hero_id] = row[9]
 
-        print(self.user_team_lookup)
-
         # Set 2D camera (the camera will scale to the contents in the scene)
         self.view.camera = vispy.scene.PanZoomCamera(aspect=1)
         # flip y-axis to have correct aligment
@@ -73,27 +71,25 @@ class Application(object):
         def on_draw(event):
             pass
 
-    def add_vectors(self, is_init, selected_path, color, i):
+    def add_vectors(self, is_init, selected_path, color, selected_idx, data_idx):
 
         points_vectors = []
-        if is_init:
-            for p_i, point in enumerate(selected_path):
-                if p_i == 0:
-                    vector_distance = math.hypot(point[6], point[8])
-                else:
-                    vector_distance = math.hypot(point[2] - selected_path[p_i-1][2], point[3] - selected_path[p_i-1][3])
+        for p_i, point in enumerate(selected_path):
 
-                vector = vispy.scene.Line(numpy.array(([0,0],[vector_distance,0])), color=color, parent=self.view.scene)
-                vector_arrowhead_l = vispy.scene.Line(numpy.array(([vector_distance,0],[vector_distance - 0.0025, 0.0025])), color=color, parent=self.view.scene)
-                vector_arrowhead_r = vispy.scene.Line(numpy.array(([vector_distance,0],[vector_distance - 0.0025, -0.0025])), color=color, parent=self.view.scene)
+            vector_distance, translate, angle = self.vector_from_offset(selected_path, point, p_i)
+            t = vispy.visuals.transforms.MatrixTransform()
+            t.rotate(angle,[0,0,1])
+            t.translate(translate)
 
-                t = vispy.visuals.transforms.MatrixTransform()
+            v = numpy.array(([0,0],[vector_distance,0]))
+            a_l = numpy.array(([vector_distance,0],[vector_distance - 0.0025, 0.0025]))
+            a_r = numpy.array(([vector_distance,0],[vector_distance - 0.0025, -0.0025]))
 
-                vector.transform = t
-                vector_arrowhead_l.transform = t;
-                vector_arrowhead_r.transform = t;
-                t.rotate(point[4],[0,0,1])
-                t.translate((point[2], point[3]))
+            if is_init:
+
+                vector = vispy.scene.Line(v, color=color, parent=self.view.scene)
+                vector_arrowhead_l = vispy.scene.Line(a_l, color=color, parent=self.view.scene)
+                vector_arrowhead_r = vispy.scene.Line(a_r, color=color, parent=self.view.scene)
 
                 points_vectors.append({
                     'v': vector,
@@ -101,23 +97,18 @@ class Application(object):
                     'a_r': vector_arrowhead_r
                 })
 
-            self.vectors.append(points_vectors)
-        else:
-            for p_i, point in enumerate(selected_path):
-                if p_i == 0: vector_distance = math.hypot(point[6], point[8])
-                else: vector_distance = math.hypot(point[2] - selected_path[p_i-1][2], point[3] - selected_path[p_i-1][3])
+            else:
 
-                self.vectors[i][p_i]['v'].set_data(numpy.array(([0,0],[vector_distance,0])))
-                self.vectors[i][p_i]['a_l'].set_data(numpy.array(([vector_distance,0],[vector_distance - 0.0025, 0.0025])))
-                self.vectors[i][p_i]['a_r'].set_data(numpy.array(([vector_distance,0],[vector_distance - 0.0025, -0.0025])))
+                self.vectors[selected_idx][p_i]['v'].set_data(v)
+                self.vectors[selected_idx][p_i]['a_l'].set_data(a_l)
+                self.vectors[selected_idx][p_i]['a_r'].set_data(a_r)
+                points_vectors = self.vectors[selected_idx]
 
-                t = vispy.visuals.transforms.MatrixTransform()
+            points_vectors[p_i]['v'].transform = t
+            points_vectors[p_i]['a_l'].transform = t;
+            points_vectors[p_i]['a_r'].transform = t;
 
-                self.vectors[i][p_i]['v'].transform = t
-                self.vectors[i][p_i]['a_l'].transform = t;
-                self.vectors[i][p_i]['a_r'].transform = t;
-                t.rotate(point[4],[0,0,1])
-                t.translate((point[2], point[3]))
+        if is_init: self.vectors.append(points_vectors)
 
 
     def draw_path(self, ev):
@@ -138,7 +129,7 @@ class Application(object):
             # paths can NOT contain each other
             path_end = numpy.random.random_integers(1, len(self.data[hero_id]) / LINE_SIZE) * LINE_SIZE
             p = numpy.asarray(self.data[hero_id][path_end - LINE_SIZE:path_end])
-            selected_paths.append(([math.hypot(p[LINE_SIZE-1][2] - p[0][2] - self.mouse_xy[0], p[LINE_SIZE-1][3] - p[0][3] - self.mouse_xy[1])], p))
+            selected_paths.append(([math.hypot(p[LINE_SIZE-1][2] - p[0][2] - self.mouse_xy[0], p[LINE_SIZE-1][3] - p[0][3] - self.mouse_xy[1])], p, path_end - LINE_SIZE))
         
         selected_paths.sort(key=lambda x: x[0])
 
@@ -158,12 +149,11 @@ class Application(object):
 
             if is_init:
 
-                plot = vispy.scene.Line(pos=selected_path[:,[2,3]], parent=self.view.scene, color=color, antialias=True, method='gl')                
+                plot = vispy.scene.Line(pos=selected_path[:,[2,3]], parent=self.view.scene, color=color, antialias=True, method='gl')
                 self.lines.append(plot)
             else:
                 self.lines[i].set_data(pos=selected_path[:,[2,3]])
-
-            self.add_vectors(is_init, selected_path, color, i)
+            self.add_vectors(is_init, selected_path, color, i, selected_paths[i][1])
 
 
         if is_init:
@@ -174,6 +164,16 @@ class Application(object):
             y_max = numpy.amax(paths[:,3])
             self.view.camera.set_range((x_min - MARGIN, x_max + MARGIN), (y_min - MARGIN, y_max + MARGIN))
             is_init = False
+
+    # vector distance calculators
+
+    def vector_from_offset(self, selected_path, point, idx):
+        if idx == 0: vector_distance = math.hypot(point[6], point[8])
+        else: vector_distance = math.hypot(point[2] - selected_path[idx-1][2], point[3] - selected_path[idx-1][3])
+        return(vector_distance, (point[2], point[3]), point[4])
+
+
+        
 
     def process(self, _):
         return
