@@ -11,7 +11,7 @@ import math
 
 from vispy.geometry import curves
 
-SEGMENT_SIZE = 10
+SEGMENT_SIZE = 20
 MARGIN = 2
 TOP_PATHS_NUMBER = 3
 SAMPLE_SIZE = 200
@@ -78,8 +78,7 @@ class Application(object):
                 for idx, point in enumerate(segment): 
                     if idx == 0: continue
                     if math.fabs(point[2] - segment[idx -1][2]) > TELEPORT_THRESHOLD or math.fabs(point[3] - segment[idx -1][3]) > TELEPORT_THRESHOLD:
-                        pass
-                        # self.segments[hero_id][idx] = None # skip teleoprts 
+                        self.segments[hero_id][idx] = None # skip teleoprts 
             
         # Set 2D camera (the camera will scale to the contents in the scene)
         #self.view.camera = vispy.scene.PanZoomCamera(aspect=1)
@@ -96,7 +95,6 @@ class Application(object):
         self.canvas.events.mouse_press()
 
 
-        # Implement key presses
         @self.canvas.events.key_press.connect
         def on_key_press(event):
             if self.timer_toggle: self.timer.stop()
@@ -118,29 +116,26 @@ class Application(object):
             pass
 
 
-
     def draw_paths(self, ev):
 
         selected_paths = []
-
         for i in range(SAMPLE_SIZE):
             hero_id = random.choice(self.data.keys())
-            # paths can contain each other
-            # path_end = numpy.random.random_integers(SEGMENT_SIZE, len(self.data[hero_id]))
-            # paths can NOT contain each other
-
-            #path_end = numpy.random.random_integers(1, len(self.data[hero_id]) / SEGMENT_SIZE) * SEGMENT_SIZE
-            #p = numpy.asarray(self.data[hero_id][path_end - SEGMENT_SIZE:path_end])
-            # trying to catch the mouse pointer
-            #selected_paths.append(([math.hypot(p[SEGMENT_SIZE-1][2] - p[0][2] - self.mouse_xy[0], p[SEGMENT_SIZE-1][3] - p[0][3] - self.mouse_xy[1])], p, path_end - SEGMENT_SIZE, hero_id))
-
             path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
             random_path = self.segments[hero_id][path_idx]
-            selected_paths.append(([math.hypot(random_path[len(random_path)-1][2] - random_path[0][2] - self.mouse_xy[0], random_path[len(random_path)-1][3] - random_path[0][3] - self.mouse_xy[1])], path_idx, hero_id))
-
+            if random_path != None:
+                selected_paths.append(([math.hypot(random_path[len(random_path)-1][2] - random_path[0][2] - self.mouse_xy[0], random_path[len(random_path)-1][3] - random_path[0][3] - self.mouse_xy[1])], path_idx, hero_id))
         selected_paths.sort(key=lambda x: x[0])
 
         for i in range(TOP_PATHS_NUMBER):
+            if i >= len(selected_paths):
+                # clear and skip
+                self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
+                for p_i, point in enumerate(selected_path):
+                    if SELECTED_POINT and p_i != SELECTED_POINT: continue
+                    self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]))
+                    self.vectors[i][p_i][1].set_data(pos=numpy.asarray([[0,0],[0,0]]))
+
             selected_path = self.segments[selected_paths[i][2]][selected_paths[i][1]]
             self.lines[i].set_data(pos=selected_path[:,[2,3]])
             self.lines[i].transform.reset()
@@ -152,7 +147,7 @@ class Application(object):
                 nearest_enemy = None
                 # get the nearest friend / enemy to 
                 for hero_id in self.data.keys():
-                    if hero_id != selected_paths[i][2]: #it's not the own player
+                    if hero_id != selected_paths[i][2]: # it's not the own player
                         hero_point = self.segments[hero_id][selected_paths[i][1]][p_i]
                         distance = math.hypot(hero_point[2] - point[2], hero_point[3] - point[3])
                         if self.user_team_lookup[hero_id] == self.user_team_lookup[selected_paths[i][2]]: # friend
