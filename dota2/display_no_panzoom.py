@@ -11,7 +11,7 @@ import math
 
 from vispy.geometry import curves
 
-SEGMENT_SIZE = 20
+SEGMENT_SIZE = 5
 MARGIN = 2
 TOP_PATHS_NUMBER = 3
 SAMPLE_SIZE = 200
@@ -54,6 +54,10 @@ class Application(object):
             self.vectors.append(vectors_line)
 
         self.timer_toggle = True
+
+        self.selected_path = None
+        self.draw_along_closets_index = 0
+
         self.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * SCALE_FACTOR
 
         # read data
@@ -78,7 +82,7 @@ class Application(object):
                 for idx, point in enumerate(segment): 
                     if idx == 0: continue
                     if math.fabs(point[2] - segment[idx -1][2]) > TELEPORT_THRESHOLD or math.fabs(point[3] - segment[idx -1][3]) > TELEPORT_THRESHOLD:
-                        self.segments[hero_id][idx] = None # skip teleoprts 
+                        self.segments[hero_id][idx] = [] # skip teleoprts 
             
         # Set 2D camera (the camera will scale to the contents in the scene)
         #self.view.camera = vispy.scene.PanZoomCamera(aspect=1)
@@ -92,6 +96,7 @@ class Application(object):
         self.grid.transform.translate(numpy.asarray(self.canvas.size) / 2)
         self.canvas.show(visible=True)
         # HACK: Bug in VisPy 0.5.0-dev requires a click for layout to occur.
+
         self.canvas.events.mouse_press()
 
 
@@ -110,31 +115,46 @@ class Application(object):
         @self.canvas.events.mouse_move.connect
         def on_mouse_move(event):
             self.mouse_xy = (numpy.asarray(self.view.camera.transform.imap(event.pos)) - numpy.asarray(self.canvas.size) / 2) * SCALE_FACTOR
+            self.draw_along_closets_index = 0
+            self.selected_path = None
 
         @self.canvas.events.draw.connect
         def on_draw(event):
             pass
 
 
-    def draw_paths(self, ev):
-
+    def get_paths(self):
         selected_paths = []
         for i in range(SAMPLE_SIZE):
             hero_id = random.choice(self.data.keys())
             path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
             random_path = self.segments[hero_id][path_idx]
-            if random_path != None:
+            if len(random_path):
                 selected_paths.append(([math.hypot(random_path[len(random_path)-1][2] - random_path[0][2] - self.mouse_xy[0], random_path[len(random_path)-1][3] - random_path[0][3] - self.mouse_xy[1])], path_idx, hero_id))
         selected_paths.sort(key=lambda x: x[0])
+        return selected_paths
 
+    def get_path(self):
+        selected_paths = []
+        for i in range(SAMPLE_SIZE):
+            hero_id = random.choice(self.data.keys())
+            path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
+            random_path = self.segments[hero_id][path_idx]
+            if len(random_path):
+                selected_paths.append(([math.hypot(random_path[len(random_path)-1][2] - self.segments[hero_id][0][0][2] - self.mouse_xy[0], random_path[len(random_path)-1][3] - self.segments[hero_id][0][0][3] - self.mouse_xy[1])], path_idx, hero_id))
+        selected_paths.sort(key=lambda x: x[0])
+        return selected_paths
+
+    def draw_closest_with_team_vectors(self, ev):
+        selected_paths = self.get_paths()
         for i in range(TOP_PATHS_NUMBER):
             if i >= len(selected_paths):
                 # clear and skip
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
                 for p_i, point in enumerate(selected_path):
                     if SELECTED_POINT and p_i != SELECTED_POINT: continue
-                    self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]))
-                    self.vectors[i][p_i][1].set_data(pos=numpy.asarray([[0,0],[0,0]]))
+                    self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
+                    self.vectors[i][p_i][1].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
             selected_path = self.segments[selected_paths[i][2]][selected_paths[i][1]]
             self.lines[i].set_data(pos=selected_path[:,[2,3]])
@@ -162,13 +182,30 @@ class Application(object):
                 self.vectors[i][p_i][0].transform.translate((selected_path[0][2:4] * -1))
                 self.vectors[i][p_i][0].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
+
+    def draw_along_closets(self, ev):
+        if self.selected_path == None:
+            selected_paths = self.get_paths()
+            if len(selected_paths) > 0:
+                self.selected_path = selected_paths[0][2]
+            else: return
+
+        selected_path = self.segments[self.selected_path][self.draw_along_closets_index]
+        self.draw_along_closets_index +=1
+        if self.draw_along_closets_index == len(self.segments[self.selected_path]): self.draw_along_closets_index = 0
+        if len(selected_path) == 0: return # teleport
+        self.lines[0].set_data(pos=selected_path[:,[2,3]])
+        self.lines[0].transform.reset()
+        self.lines[0].transform.translate((self.segments[self.selected_path][0][0][2:4] * -1))
+        self.lines[0].transform.translate(numpy.asarray(self.canvas.size) / 2)
+
     def process(self, _):
         return
 
     def run(self):
         self.timer = vispy.app.Timer(interval=1.0 / 30.0)
-        self.timer.connect(self.draw_paths)
-        self.timer.start()
+        self.timer.connect(self.draw_along_closets)
+        self.timer.start(0.2)
         vispy.app.run()
 
 
