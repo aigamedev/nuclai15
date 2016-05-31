@@ -11,7 +11,7 @@ import math
 
 from vispy.geometry import curves
 
-SEGMENT_SIZE = 5
+SEGMENT_SIZE = 10
 MARGIN = 2
 TOP_PATHS_NUMBER = 3
 SAMPLE_SIZE = 200
@@ -79,10 +79,11 @@ class Application(object):
             # self.segments[hero_id] = numpy.asarray([self.data[hero_id][i:i+SEGMENT_SIZE] for i in range(0, len(self.data[hero_id]), SEGMENT_SIZE)])
             self.segments[hero_id] = numpy.array_split( self.data[hero_id], math.ceil(len(self.data[hero_id]) / float(SEGMENT_SIZE)) )
             for idx, segment in enumerate(self.segments[hero_id]):
-                for idx, point in enumerate(segment): 
+                for idx_point, point in enumerate(segment): 
                     if idx == 0: continue
-                    if math.fabs(point[2] - segment[idx -1][2]) > TELEPORT_THRESHOLD or math.fabs(point[3] - segment[idx -1][3]) > TELEPORT_THRESHOLD:
+                    if math.fabs(point[2] - segment[idx_point -1][2]) > TELEPORT_THRESHOLD or math.fabs(point[3] - segment[idx_point -1][3]) > TELEPORT_THRESHOLD:
                         self.segments[hero_id][idx] = [] # skip teleoprts 
+                        continue
             
         # Set 2D camera (the camera will scale to the contents in the scene)
         #self.view.camera = vispy.scene.PanZoomCamera(aspect=1)
@@ -185,7 +186,7 @@ class Application(object):
 
     def draw_along_closets(self, ev):
         if self.selected_path == None:
-            selected_paths = self.get_paths()
+            selected_paths = self.get_path()
             if len(selected_paths) > 0:
                 self.selected_path = selected_paths[0][2]
             else: return
