@@ -11,12 +11,13 @@ import math
 
 from vispy.geometry import curves
 
-SEGMENT_SIZE = 5
+SEGMENT_SIZE = 10
 MARGIN = 2
 TOP_PATHS_NUMBER = 3
 SAMPLE_SIZE = 200
 SCALE_FACTOR = 100
 SELECTED_POINT = int(SEGMENT_SIZE / 2)
+TELEPORT_THRESHOLD = 250
 
 class Application(object):
 
@@ -65,17 +66,20 @@ class Application(object):
             coordinates = numpy.array([ x * SCALE_FACTOR if idx >=2 and idx <= 8 else x for idx, x in enumerate(row)])
             if hero_id in self.data: self.data[hero_id].append(numpy.array(coordinates))
             else: self.data[hero_id] = [coordinates]
+            # players 0 - 4 belong to the first team 5 - 9 to the seond one - it comes from a replay data format
             if not hero_id in self.user_team_lookup: self.user_team_lookup[hero_id] = 1 if len(self.user_team_lookup.keys()) <= 4 else 2
 
         # prepare smaller segments
         self.segments = {}
         for hero_id in self.data.keys():
-            self.segments[hero_id] = numpy.asarray([self.data[hero_id][i:i+SEGMENT_SIZE] for i in range(0, len(self.data[hero_id]), SEGMENT_SIZE)])
-
-        print(self.segments[self.data.keys()[0]][0])
-        ## remove all teleports
-        for hero_id in self.data.keys():
-            pass
+            # self.segments[hero_id] = numpy.asarray([self.data[hero_id][i:i+SEGMENT_SIZE] for i in range(0, len(self.data[hero_id]), SEGMENT_SIZE)])
+            self.segments[hero_id] = numpy.array_split( self.data[hero_id], math.ceil(len(self.data[hero_id]) / float(SEGMENT_SIZE)) )
+            for idx, segment in enumerate(self.segments[hero_id]):
+                for idx, point in enumerate(segment): 
+                    if idx == 0: continue
+                    if math.fabs(point[2] - segment[idx -1][2]) > TELEPORT_THRESHOLD or math.fabs(point[3] - segment[idx -1][3]) > TELEPORT_THRESHOLD:
+                        pass
+                        # self.segments[hero_id][idx] = None # skip teleoprts 
             
         # Set 2D camera (the camera will scale to the contents in the scene)
         #self.view.camera = vispy.scene.PanZoomCamera(aspect=1)
@@ -130,20 +134,18 @@ class Application(object):
             # trying to catch the mouse pointer
             #selected_paths.append(([math.hypot(p[SEGMENT_SIZE-1][2] - p[0][2] - self.mouse_xy[0], p[SEGMENT_SIZE-1][3] - p[0][3] - self.mouse_xy[1])], p, path_end - SEGMENT_SIZE, hero_id))
 
-            path_idx = numpy.random.random_integers(1, len(self.segments[hero_id]))
+            path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
             random_path = self.segments[hero_id][path_idx]
-            selected_paths.append(([math.hypot(random_path[SEGMENT_SIZE-1][2] - random_path[0][2] - self.mouse_xy[0], random_path[SEGMENT_SIZE-1][3] - random_path[0][3] - self.mouse_xy[1])], path_idx, hero_id))
+            selected_paths.append(([math.hypot(random_path[len(random_path)-1][2] - random_path[0][2] - self.mouse_xy[0], random_path[len(random_path)-1][3] - random_path[0][3] - self.mouse_xy[1])], path_idx, hero_id))
 
         selected_paths.sort(key=lambda x: x[0])
 
         for i in range(TOP_PATHS_NUMBER):
-
             selected_path = self.segments[selected_paths[i][2]][selected_paths[i][1]]
             self.lines[i].set_data(pos=selected_path[:,[2,3]])
             self.lines[i].transform.reset()
             self.lines[i].transform.translate((selected_path[0][2:4] * -1))
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
-
             for p_i, point in enumerate(selected_path):
                 if SELECTED_POINT and p_i != SELECTED_POINT: continue
                 nearest_frined = None
