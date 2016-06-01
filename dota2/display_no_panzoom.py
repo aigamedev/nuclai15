@@ -11,7 +11,7 @@ import math
 
 from vispy.geometry import curves
 
-SEGMENT_SIZE = 500
+SEGMENT_SIZE = 300
 MOVE_ALONG_STEP_SIZE = 10
 MARGIN = 2
 TOP_PATHS_NUMBER = 2
@@ -20,14 +20,6 @@ SCALE_FACTOR = 100
 SELECTED_POINT = int(SEGMENT_SIZE / 2)
 TELEPORT_THRESHOLD = 250
 
-def fill_up_gaps(arr):
-    result = []
-    for idx, point in enumerate(arr):
-        result.append(point)
-        result.append(point + [0.001,0.001])
-
-    #return arr
-    return numpy.asarray(result[1:-2])
 
 class Application(object):
 
@@ -205,13 +197,13 @@ class Application(object):
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
 
             selected_path = self.segments[self.selected_path[i][2]][self.selected_path[i][1]]
-            #selected_path = selected_path[0:self.draw_along_closets_index+MOVE_ALONG_STEP_SIZE]
-            selected_path = selected_path[0:SEGMENT_SIZE]
+            selected_path = selected_path[0:self.draw_along_closets_index+MOVE_ALONG_STEP_SIZE]
+            #selected_path = selected_path[0:SEGMENT_SIZE]
             self.draw_along_closets_index += MOVE_ALONG_STEP_SIZE
             if len(selected_path) == 0: 
                 self.draw_along_closets_index = 0
                 return # end of path
-            self.lines[i].set_data(pos=fill_up_gaps(selected_path[:,[2,3]]), width=5)
+            self.lines[i].set_data(pos=selected_path[:,[2,3]], width=5)
             self.lines[i].transform.reset()
             self.lines[i].transform.translate((self.segments[self.selected_path[i][2]][self.selected_path[i][1]][0][2:4] * -1))
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
@@ -222,8 +214,8 @@ class Application(object):
 
     def run(self):
         self.timer = vispy.app.Timer(interval=1.0 / 30.0)
-        self.timer.connect(self.draw_closest_with_team_vectors)
-        #self.timer.connect(self.draw_along_closets_segment)
+        #self.timer.connect(self.draw_closest_with_team_vectors)
+        self.timer.connect(self.draw_along_closets_segment)
         self.timer.start(0.5)
         vispy.app.run()
 
