@@ -11,13 +11,23 @@ import math
 
 from vispy.geometry import curves
 
-SEGMENT_SIZE = 10
+SEGMENT_SIZE = 500
+MOVE_ALONG_STEP_SIZE = 10
 MARGIN = 2
-TOP_PATHS_NUMBER = 3
+TOP_PATHS_NUMBER = 2
 SAMPLE_SIZE = 200
 SCALE_FACTOR = 100
 SELECTED_POINT = int(SEGMENT_SIZE / 2)
 TELEPORT_THRESHOLD = 250
+
+def fill_up_gaps(arr):
+    result = []
+    for idx, point in enumerate(arr):
+        result.append(point)
+        result.append(point + [0.001,0.001])
+
+    #return arr
+    return numpy.asarray(result[1:-2])
 
 class Application(object):
 
@@ -40,14 +50,14 @@ class Application(object):
         for i in range(TOP_PATHS_NUMBER):
             vectors_line = []
             color = numpy.random.rand(3)
-            line = vispy.scene.Line(parent=self.view.scene, color=color, width=3, method='agg')
+            line = vispy.scene.Line(parent=self.view.scene, color=color, width=3, connect='strip', method='agg')
             line.transform = vispy.visuals.transforms.MatrixTransform()
             self.lines.append(line)
             for j in range(SEGMENT_SIZE):
                 if not SELECTED_POINT or SELECTED_POINT == j:
-                    arr1 = vispy.scene.Arrow(numpy.asarray([[i,i],[j,j]]), parent=self.view.scene, color=color, width=3, method='agg', arrow_size=20.0)
+                    arr1 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=1, method='agg', arrow_size=20.0)
                     arr1.transform = vispy.visuals.transforms.MatrixTransform()
-                    arr2 = vispy.scene.Arrow(numpy.asarray([[i,i],[j,j]]), parent=self.view.scene, color=color, width=3, method='agg', arrow_size=20.0)
+                    arr2 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=1, method='agg', arrow_size=20.0)
                     arr2.transform = arr1.transform
                     vectors_line.append([arr1, arr2])
                 else: vectors_line.append([None, None])
@@ -131,18 +141,13 @@ class Application(object):
             path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
             random_path = self.segments[hero_id][path_idx]
             if len(random_path):
-                selected_paths.append(([math.hypot(random_path[len(random_path)-1][2] - random_path[0][2] - self.mouse_xy[0], random_path[len(random_path)-1][3] - random_path[0][3] - self.mouse_xy[1])], path_idx, hero_id))
-        selected_paths.sort(key=lambda x: x[0])
-        return selected_paths
-
-    def get_path(self):
-        selected_paths = []
-        for i in range(SAMPLE_SIZE):
-            hero_id = random.choice(self.data.keys())
-            path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
-            random_path = self.segments[hero_id][path_idx]
-            if len(random_path):
-                selected_paths.append(([math.hypot(random_path[len(random_path)-1][2] - self.segments[hero_id][0][0][2] - self.mouse_xy[0], random_path[len(random_path)-1][3] - self.segments[hero_id][0][0][3] - self.mouse_xy[1])], path_idx, hero_id))
+                # the single score calculated in place where the path ends makes sense for short paths,
+                # for longer paths it's better to either take the closest from given set or the aggregated sum? average?
+                path_distance = None
+                for point_i in range(0, len(random_path), 10):
+                    point_distance = math.hypot(random_path[len(random_path) - 1 - point_i][2] - random_path[0][2] - self.mouse_xy[0], random_path[len(random_path) - 1 - point_i][3] - random_path[0][3] - self.mouse_xy[1])
+                    if path_distance == None or path_distance > point_distance: path_distance = point_distance
+                selected_paths.append((path_distance, path_idx, hero_id))
         selected_paths.sort(key=lambda x: x[0])
         return selected_paths
 
@@ -164,49 +169,62 @@ class Application(object):
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
             for p_i, point in enumerate(selected_path):
                 if SELECTED_POINT and p_i != SELECTED_POINT: continue
-                nearest_frined = None
-                nearest_enemy = None
+                nearest_frined = []
+                nearest_enemy = []
                 # get the nearest friend / enemy to 
                 for hero_id in self.data.keys():
                     if hero_id != selected_paths[i][2]: # it's not the own player
-                        hero_point = self.segments[hero_id][selected_paths[i][1]][p_i]
-                        distance = math.hypot(hero_point[2] - point[2], hero_point[3] - point[3])
-                        if self.user_team_lookup[hero_id] == self.user_team_lookup[selected_paths[i][2]]: # friend
-                            if nearest_frined == None or nearest_frined[1] > distance: nearest_frined = (hero_id, distance, hero_point[2:4])
-                        else: # enemy
-                            if nearest_enemy == None or nearest_enemy[1] > distance: nearest_enemy = (hero_id, distance, hero_point[2:4])
-                friend_vector = numpy.asarray([point[2:4], nearest_frined[2]]) if nearest_frined else nump.asarray([[0,0],[0,0]])
-                enemy_vector = numpy.asarray([point[2:4], nearest_enemy[2]]) if nearest_enemy else nump.asarray([[0,0],[0,0]])
+                        if hero_id in self.segments and len(self.segments[hero_id]) > selected_paths[i][1] and len(self.segments[hero_id][selected_paths[i][1]]) > 0:
+                            hero_point = self.segments[hero_id][selected_paths[i][1]][p_i]
+                            distance = math.hypot(hero_point[2] - point[2], hero_point[3] - point[3])
+                            if self.user_team_lookup[hero_id] == self.user_team_lookup[selected_paths[i][2]]: # friend
+                                if len(nearest_frined) == 0 or nearest_frined[1] > distance: nearest_frined = (hero_id, distance, hero_point[2:4])
+                            else: # enemy
+                                if len(nearest_enemy) == 0 or nearest_enemy[1] > distance: nearest_enemy = (hero_id, distance, hero_point[2:4])
+
+                friend_vector = numpy.asarray([point[2:4], nearest_frined[2]]) if nearest_frined else numpy.asarray([[0,0],[0,0]])
                 self.vectors[i][p_i][0].set_data(pos=friend_vector, arrows=friend_vector.reshape(1,4))
-                self.vectors[i][p_i][1].set_data(pos=enemy_vector, arrows=enemy_vector.reshape(1,4))
                 self.vectors[i][p_i][0].transform.reset()
                 self.vectors[i][p_i][0].transform.translate((selected_path[0][2:4] * -1))
                 self.vectors[i][p_i][0].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
+                enemy_vector = numpy.asarray([point[2:4], nearest_enemy[2]]) if nearest_enemy else numpy.asarray([[0,0],[0,0]])
+                self.vectors[i][p_i][1].set_data(pos=enemy_vector, arrows=enemy_vector.reshape(1,4))
 
-    def draw_along_closets(self, ev):
+
+    def draw_along_closets_segment(self, ev):
         if self.selected_path == None:
-            selected_paths = self.get_path()
+            selected_paths = self.get_paths()
             if len(selected_paths) > 0:
-                self.selected_path = selected_paths[0][2]
+                self.selected_path = selected_paths[:TOP_PATHS_NUMBER]
             else: return
 
-        selected_path = self.segments[self.selected_path][self.draw_along_closets_index]
-        self.draw_along_closets_index +=1
-        if self.draw_along_closets_index == len(self.segments[self.selected_path]): self.draw_along_closets_index = 0
-        if len(selected_path) == 0: return # teleport
-        self.lines[0].set_data(pos=selected_path[:,[2,3]])
-        self.lines[0].transform.reset()
-        self.lines[0].transform.translate((self.segments[self.selected_path][0][0][2:4] * -1))
-        self.lines[0].transform.translate(numpy.asarray(self.canvas.size) / 2)
+        for i in range(TOP_PATHS_NUMBER):
+            if i >= len(self.selected_path):
+                # clear and skip
+                self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
+
+            selected_path = self.segments[self.selected_path[i][2]][self.selected_path[i][1]]
+            #selected_path = selected_path[0:self.draw_along_closets_index+MOVE_ALONG_STEP_SIZE]
+            selected_path = selected_path[0:SEGMENT_SIZE]
+            self.draw_along_closets_index += MOVE_ALONG_STEP_SIZE
+            if len(selected_path) == 0: 
+                self.draw_along_closets_index = 0
+                return # end of path
+            self.lines[i].set_data(pos=fill_up_gaps(selected_path[:,[2,3]]), width=5)
+            self.lines[i].transform.reset()
+            self.lines[i].transform.translate((self.segments[self.selected_path[i][2]][self.selected_path[i][1]][0][2:4] * -1))
+            self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
+
 
     def process(self, _):
         return
 
     def run(self):
         self.timer = vispy.app.Timer(interval=1.0 / 30.0)
-        self.timer.connect(self.draw_along_closets)
-        self.timer.start(0.2)
+        self.timer.connect(self.draw_closest_with_team_vectors)
+        #self.timer.connect(self.draw_along_closets_segment)
+        self.timer.start(0.5)
         vispy.app.run()
 
 
