@@ -11,7 +11,7 @@ import math
 
 from vispy.geometry import curves
 
-SEGMENT_SIZE = 300
+SEGMENT_SIZE = 100
 MOVE_ALONG_STEP_SIZE = 10
 MARGIN = 2
 TOP_PATHS_NUMBER = 2
@@ -47,9 +47,9 @@ class Application(object):
             self.lines.append(line)
             for j in range(SEGMENT_SIZE):
                 if not SELECTED_POINT or SELECTED_POINT == j:
-                    arr1 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=1, method='agg', arrow_size=20.0)
+                    arr1 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=2, method='agg', arrow_size=20.0)
                     arr1.transform = vispy.visuals.transforms.MatrixTransform()
-                    arr2 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=1, method='agg', arrow_size=20.0)
+                    arr2 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=2, method='agg', arrow_size=20.0)
                     arr2.transform = arr1.transform
                     vectors_line.append([arr1, arr2])
                 else: vectors_line.append([None, None])
@@ -93,13 +93,11 @@ class Application(object):
         #self.view.camera.flip = (0, 1, 0)
         #self.view.camera.set_range(range)
 
-
         self.grid = vispy.scene.visuals.GridLines(parent=self.view.scene, color=(1, 1, 1, 1))
         self.grid.transform = vispy.visuals.transforms.MatrixTransform()
         self.grid.transform.translate(numpy.asarray(self.canvas.size) / 2)
         self.canvas.show(visible=True)
         # HACK: Bug in VisPy 0.5.0-dev requires a click for layout to occur.
-
         self.canvas.events.mouse_press()
 
 
@@ -124,7 +122,6 @@ class Application(object):
         @self.canvas.events.draw.connect
         def on_draw(event):
             pass
-
 
     def get_paths(self):
         selected_paths = []
