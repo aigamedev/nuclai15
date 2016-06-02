@@ -11,12 +11,12 @@ import math
 
 from vispy.geometry import curves
 
-SEGMENT_SIZE = 25
-MOVE_ALONG_STEP_SIZE = 5
+SEGMENT_SIZE = 30
+MOVE_ALONG_STEP_SIZE = 15
 MARGIN = 2
-TOP_PATHS_NUMBER = 1
-SAMPLE_SIZE = 300
-SCALE_FACTOR = 100
+TOP_PATHS_NUMBER = 5
+SAMPLE_SIZE = 150
+SCALE_FACTOR = 200
 VECTOR_POINT = int(SEGMENT_SIZE / 2) # the point whre we draw vectors from, if None - we draw vectors for each point
 TELEPORT_THRESHOLD = 250 # it defines a disatnce where we elimiate a segment - we skip all teleports
 
@@ -39,9 +39,11 @@ class Application(object):
         # prepare display
         self.lines = []
         self.vectors = []
+        self.colors = []
         for i in range(TOP_PATHS_NUMBER):
             vectors_line = []
             color = numpy.random.rand(3)
+            self.colors.append(color)
             line = vispy.scene.Line(parent=self.view.scene, color=color, width=3, connect='strip', method='agg')
             line.transform = vispy.visuals.transforms.MatrixTransform()
             self.lines.append(line)
@@ -56,12 +58,13 @@ class Application(object):
                 else: vectors_line.append([None, None])
             self.vectors.append(vectors_line)
 
-        self.timer_toggle = True
 
+        self.timer_toggle = True
         self.selected_path = []
         self.mouse_moved = True
         self.draw_along_closets_index = 0
 
+        # init mouse with some random value
         self.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * SCALE_FACTOR
 
         # read data
@@ -71,7 +74,8 @@ class Application(object):
         for idx, row in enumerate(numpy.genfromtxt(os.path.join('csv', 'data.csv'), delimiter=',')):
             if idx == 0: continue
             hero_id = int(row[1])
-            coordinates = numpy.array([ x * SCALE_FACTOR if idx >=2 and idx <= 8 else x for idx, x in enumerate(row)])
+            coordinates = numpy.array(row)
+            coordinates *= SCALE_FACTOR
             if hero_id in self.data: self.data[hero_id].append(numpy.array(coordinates))
             else: self.data[hero_id] = [coordinates]
             # players 0 - 4 belong to the first team 5 - 9 to the seond one - it comes from a replay data format
@@ -124,18 +128,19 @@ class Application(object):
         def on_draw(event):
             pass
 
-    def get_paths(self):
+    def get_paths(self, seed = []):
         selected_paths = []
+
         for i in range(SAMPLE_SIZE):
             hero_id = random.choice(self.data.keys())
             path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
             random_path = self.segments[hero_id][path_idx]
-            if len(random_path):
-                # the single score calculated in place where the path ends makes sense for short paths,
-                # for longer paths it's better to either take the closest from given set or the aggregated sum? average?
-                path_distance = None
+            # ignore empty and these where player hasn't moved / @TODO: would be nice to have better heurstic to say if player moved or not
+            if len(random_path) and random_path[0][2] != random_path[-1][2] and random_path[0][3] != random_path[-1][3]:
                 refering_x = random_path[0][2]
                 refering_y = random_path[0][3]
+                """
+                path_distance = None
                 if len(self.selected_path) != 0:
                     selected_path = self.segments[self.selected_path[0][2]][self.selected_path[0][1]]
                     new_start_point_idx = len(selected_path) - 1
@@ -144,17 +149,44 @@ class Application(object):
                     if self.draw_along_closets_index >= len(selected_path):
                         new_start_point_idx = len(selected_path) - 1
 
-                    #new_start_point_idx = 0
-
                     selected_path = selected_path[new_start_point_idx] # the last drawn index in segment
 
                     refering_x = random_path[0][2] - (selected_path[2] - self.selected_path[0][3][0])
                     refering_y = random_path[0][3] - (selected_path[3] - self.selected_path[0][3][1])
-
+                """
+                # the single score calculated in place where the path ends makes sense for short paths,
+                # for longer paths it's better to either take the closest from given set or the aggregated sum? average?
+                """
                 for point_i in range(0, len(random_path), 10):
                     point_distance = math.hypot(random_path[len(random_path) - 1 - point_i][2] - refering_x - self.mouse_xy[0], random_path[len(random_path) - 1 - point_i][3] - refering_y - self.mouse_xy[1])
                     if path_distance == None or path_distance > point_distance: path_distance = point_distance
-                selected_paths.append((path_distance, path_idx, hero_id, numpy.asarray([refering_x, refering_y])))
+                    # distance, segment_idx, hero_id, refering point
+                """
+                investiagted_point_idx = len(random_path) 
+                if MOVE_ALONG_STEP_SIZE < investiagted_point_idx: investiagted_point_idx = MOVE_ALONG_STEP_SIZE
+                investiagted_point_idx -= 1
+
+                point_distance = math.hypot(random_path[investiagted_point_idx][2] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][3] - refering_y - self.mouse_xy[1])
+                selected_paths.append([point_distance, path_idx, hero_id, numpy.asarray([refering_x, refering_y])])
+
+        for path in seed:
+            random_path = self.segments[path[2]][path[1]]
+            refering_x = random_path[self.draw_along_closets_index][2] # this is new center
+            refering_y = random_path[self.draw_along_closets_index][3] # this is new center
+
+            investiagted_point_idx = len(random_path) 
+            if MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index < investiagted_point_idx: investiagted_point_idx = MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index
+            investiagted_point_idx -= 1
+
+            point_distance = math.hypot(random_path[investiagted_point_idx][2] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][3] - refering_y - self.mouse_xy[1])
+            path[0] = point_distance
+            path[3] = numpy.asarray([refering_x, refering_y])
+            selected_paths.append(path)
+
+        # for old reappended selected paths calculate new score - the distance to a new point
+
+
+
         selected_paths.sort(key=lambda x: x[0])
         return selected_paths
 
@@ -194,47 +226,64 @@ class Application(object):
                 self.vectors[i][p_i][0].transform.reset()
                 self.vectors[i][p_i][0].transform.translate((selected_path[0][2:4] * -1))
                 self.vectors[i][p_i][0].transform.translate(numpy.asarray(self.canvas.size) / 2)
-
                 enemy_vector = numpy.asarray([point[2:4], nearest_enemy[2]]) if nearest_enemy else numpy.asarray([[0,0],[0,0]])
                 self.vectors[i][p_i][1].set_data(pos=enemy_vector, arrows=enemy_vector.reshape(1,4))
 
 
     def draw_along_closets_segment(self, ev):
         if len(self.selected_path) == 0 or self.mouse_moved:
+            self.draw_along_closets_index = 0
             selected_paths = self.get_paths()
             if len(selected_paths) > 0:
                 self.selected_path = selected_paths[:TOP_PATHS_NUMBER]
+                self.mouse_moved = False
             else: return
+        else:
+            # advence the best path or get a new one
+            selected_paths = self.get_paths([self.selected_path[0]])
+            if selected_paths[0][1] != self.selected_path[0][1] or selected_paths[0][2] != self.selected_path[0][2]:
+                # new path
+                self.draw_along_closets_index = 0
+            self.selected_path = selected_paths[:TOP_PATHS_NUMBER]
+        full_path_len = len(self.segments[self.selected_path[0][2]][self.selected_path[0][1]])
+        if self.draw_along_closets_index > full_path_len - MOVE_ALONG_STEP_SIZE:
+            self.mouse_moved = True
+            return # end of path
 
-        # to concatenate TOP_PATHS_NUMBER must be 1 - otherwise it doesn't make too much sense
+
         for i in range(TOP_PATHS_NUMBER):
             if i >= len(self.selected_path):
                 # clear and skip
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
+                continue
 
-            if self.mouse_moved:
-                # handle mouse move
-                self.draw_along_closets_index = 0
-                self.mouse_moved = False
+            current = self.segments[self.selected_path[i][2]][self.selected_path[i][1]] # hero_id, segment_idx
 
-            selected_path = self.segments[self.selected_path[i][2]][self.selected_path[i][1]]
-            #selected_path = selected_path[self.draw_along_closets_index:self.draw_along_closets_index+MOVE_ALONG_STEP_SIZE]
-            selected_path = selected_path[0:SEGMENT_SIZE]
-            #self.draw_along_closets_index += MOVE_ALONG_STEP_SIZE
-            self.draw_along_closets_index += 1
-            if self.draw_along_closets_index >= len(selected_path): 
-                self.mouse_moved = True
-                return # end of path
+            # selected_path = selected_path[0:SEGMENT_SIZE]
+            # selected_path = selected_path[self.draw_along_closets_index:self.draw_along_closets_index+MOVE_ALONG_STEP_SIZE]
+            
+            draw_to = MOVE_ALONG_STEP_SIZE
+            if i == 0:
+                draw_to += self.draw_along_closets_index
 
-            self.marker.set_data(pos=numpy.asarray([[selected_path[self.draw_along_closets_index][2], selected_path[self.draw_along_closets_index][3]]]), face_color='red', size=15)
+            current = current[0:draw_to] # self.draw_along_closets_index += MOVE_ALONG_STEP_SIZE
 
-            self.lines[i].set_data(pos=selected_path[:,[2,3]])
+            path_width = 5 if i == 0 else 1
+            self.lines[i].set_data(pos=current[:,[2,3]], width=path_width)
             self.lines[i].transform.reset()
-            self.marker.transform = self.lines[i].transform
+            print(self.selected_path[i][3] * -1, i)
             self.lines[i].transform.translate((self.selected_path[i][3] * -1))
+
+            # to have the player always in the screen center
+            #self.lines[i].transform.translate(self.selected_path[i][3] - marker_point)
+            # to have [0,0] in the screen center
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
-
+            if i == 0:
+                # marker_point = selected_path[self.draw_along_closets_index][2:4]
+                self.marker.set_data(pos=numpy.asarray([self.selected_path[i][3]]), face_color=self.colors[i], size=15)
+                self.marker.transform = self.lines[i].transform
+        self.draw_along_closets_index += 1
 
 
     def process(self, _):
@@ -244,7 +293,7 @@ class Application(object):
         self.timer = vispy.app.Timer(interval=1.0 / 30.0)
         #self.timer.connect(self.draw_closest_with_team_vectors)
         self.timer.connect(self.draw_along_closets_segment)
-        self.timer.start(0.5)
+        self.timer.start(0.033) # 30 FPS
         vispy.app.run()
 
 
