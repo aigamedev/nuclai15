@@ -11,14 +11,14 @@ import math
 
 from vispy.geometry import curves
 
-SEGMENT_SIZE = 10
+SEGMENT_SIZE = 25
 MOVE_ALONG_STEP_SIZE = 5
 MARGIN = 2
 TOP_PATHS_NUMBER = 1
 SAMPLE_SIZE = 300
 SCALE_FACTOR = 100
-SELECTED_POINT = int(SEGMENT_SIZE / 2)
-TELEPORT_THRESHOLD = 250
+VECTOR_POINT = int(SEGMENT_SIZE / 2) # the point whre we draw vectors from, if None - we draw vectors for each point
+TELEPORT_THRESHOLD = 250 # it defines a disatnce where we elimiate a segment - we skip all teleports
 
 
 class Application(object):
@@ -35,7 +35,7 @@ class Application(object):
 
         self.widget = self.canvas.central_widget
         self.view = self.canvas.central_widget.add_view()
-
+        self.marker = vispy.scene.Markers(pos=numpy.asarray([[0,0]]), face_color='red', size=0, parent=self.view.scene)
         # prepare display
         self.lines = []
         self.vectors = []
@@ -46,11 +46,12 @@ class Application(object):
             line.transform = vispy.visuals.transforms.MatrixTransform()
             self.lines.append(line)
             for j in range(SEGMENT_SIZE):
-                if not SELECTED_POINT or SELECTED_POINT == j:
+                if not VECTOR_POINT or VECTOR_POINT == j:
                     arr1 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=2, method='agg', arrow_size=20.0)
                     arr1.transform = vispy.visuals.transforms.MatrixTransform()
                     arr2 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=2, method='agg', arrow_size=20.0)
                     arr2.transform = arr1.transform
+                    self.marker.transform = arr1.transform
                     vectors_line.append([arr1, arr2])
                 else: vectors_line.append([None, None])
             self.vectors.append(vectors_line)
@@ -164,7 +165,7 @@ class Application(object):
                 # clear and skip
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
                 for p_i, point in enumerate(selected_path):
-                    if SELECTED_POINT and p_i != SELECTED_POINT: continue
+                    if SELECTED_POINT and p_i != VECTOR_POINT: continue
                     self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
                     self.vectors[i][p_i][1].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
@@ -174,7 +175,7 @@ class Application(object):
             self.lines[i].transform.translate((selected_path[0][2:4] * -1))
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
             for p_i, point in enumerate(selected_path):
-                if SELECTED_POINT and p_i != SELECTED_POINT: continue
+                if VECTOR_POINT and p_i != VECTOR_POINT: continue
                 nearest_frined = []
                 nearest_enemy = []
                 # get the nearest friend / enemy to 
@@ -217,17 +218,23 @@ class Application(object):
                 self.mouse_moved = False
 
             selected_path = self.segments[self.selected_path[i][2]][self.selected_path[i][1]]
-            selected_path = selected_path[self.draw_along_closets_index:self.draw_along_closets_index+MOVE_ALONG_STEP_SIZE]
-            #selected_path = selected_path[0:SEGMENT_SIZE]
-            self.draw_along_closets_index += MOVE_ALONG_STEP_SIZE
-            if len(selected_path) == 0: 
+            #selected_path = selected_path[self.draw_along_closets_index:self.draw_along_closets_index+MOVE_ALONG_STEP_SIZE]
+            selected_path = selected_path[0:SEGMENT_SIZE]
+            #self.draw_along_closets_index += MOVE_ALONG_STEP_SIZE
+            self.draw_along_closets_index += 1
+            if self.draw_along_closets_index >= len(selected_path): 
                 self.mouse_moved = True
                 return # end of path
 
-            self.lines[i].set_data(pos=selected_path[:,[2,3]], width=5)
+            self.marker.set_data(pos=numpy.asarray([[selected_path[self.draw_along_closets_index][2], selected_path[self.draw_along_closets_index][3]]]), face_color='red', size=15)
+
+            self.lines[i].set_data(pos=selected_path[:,[2,3]])
             self.lines[i].transform.reset()
+            self.marker.transform = self.lines[i].transform
             self.lines[i].transform.translate((self.selected_path[i][3] * -1))
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
+
+
 
 
     def process(self, _):
