@@ -18,7 +18,7 @@ TOP_PATHS_NUMBER = 5
 SAMPLE_SIZE = 150
 SCALE_FACTOR = 200
 VECTOR_POINT = int(SEGMENT_SIZE / 2) # the point whre we draw vectors from, if None - we draw vectors for each point
-TELEPORT_THRESHOLD = 250 # it defines a disatnce where we elimiate a segment - we skip all teleports
+TELEPORT_THRESHOLD = 40 # it defines a disatnce where we elimiate a segment - we skip all teleports
 
 
 class Application(object):
@@ -79,16 +79,14 @@ class Application(object):
             if hero_id in self.data: self.data[hero_id].append(numpy.array(coordinates))
             else: self.data[hero_id] = [coordinates]
             # players 0 - 4 belong to the first team 5 - 9 to the seond one - it comes from a replay data format
-            if not hero_id in self.user_team_lookup: self.user_team_lookup[hero_id] = 1 if len(self.user_team_lookup.keys()) <= 4 else 2
+            if not hero_id in self.user_team_lookup: self.user_team_lookup[hero_id] = 1 if len(self.user_team_lookup.keys()) <= 4 else 2 
 
         # append offset
-        """
         for hero_id in self.data.keys():
             for idx_point, point in enumerate(self.data[hero_id]):
-                if idx == 0: offset = [0,0]
-                else: offset = math.hypot(point[], self.data[hero_id][idx_point-1])
-                self.data[hero_id] = numpy.array()
-        """
+                if idx_point == 0: offset = [0,0]
+                else: offset = [point[0] - self.data[hero_id][idx_point-1][0], point[1] - self.data[hero_id][idx_point-1][1]]
+                self.data[hero_id][idx_point] = numpy.append(point, numpy.array(offset))
 
         # prepare smaller segments
         self.segments = {}
@@ -97,11 +95,12 @@ class Application(object):
             self.segments[hero_id] = numpy.array_split( self.data[hero_id], math.ceil(len(self.data[hero_id]) / float(SEGMENT_SIZE)) )
             for idx, segment in enumerate(self.segments[hero_id]):
                 for idx_point, point in enumerate(segment): 
-                    if idx == 0: continue
-                    if math.fabs(point[0] - segment[idx_point -1][0]) > TELEPORT_THRESHOLD or math.fabs(point[1] - segment[idx_point -1][1]) > TELEPORT_THRESHOLD:
+                    if idx_point == 0: continue
+                    if math.hypot(point[2], point[3]) > TELEPORT_THRESHOLD:
+                    #if math.fabs(point[0] - segment[idx_point -1][0]) > TELEPORT_THRESHOLD or math.fabs(point[1] - segment[idx_point -1][1]) > TELEPORT_THRESHOLD:
                         self.segments[hero_id][idx] = [] # skip teleports 
                         continue
-            
+
         # Set 2D camera (the camera will scale to the contents in the scene)
         #self.view.camera = vispy.scene.PanZoomCamera(aspect=1)
         # flip y-axis to have correct aligment
