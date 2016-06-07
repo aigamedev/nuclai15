@@ -12,6 +12,7 @@ import math
 from vispy.geometry import curves
 
 SEGMENT_SIZE = 10
+#SEGMENT_SIZE = 30
 MOVE_ALONG_STEP_SIZE = 15
 MARGIN = 2
 TOP_PATHS_NUMBER = 5
@@ -167,12 +168,40 @@ class Application(object):
             path[3] = numpy.asarray([refering_x, refering_y])
             selected_paths.append(path)
 
-        # for old reappended selected paths calculate new score - the distance to a new point
-
-
-
         selected_paths.sort(key=lambda x: x[0])
         return selected_paths
+
+    def draw_vector(self, ev):
+        selected_paths = self.get_paths()
+        for i in range(TOP_PATHS_NUMBER):
+            if i >= len(selected_paths):
+                # clear and skip
+                self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
+                for p_i, point in enumerate(selected_path):
+                    if SELECTED_POINT and p_i != VECTOR_POINT: continue
+                    self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
+
+            selected_path = self.segments[selected_paths[i][2]][selected_paths[i][1]]
+            self.lines[i].set_data(pos=selected_path[:,[0,1]])
+            self.lines[i].transform.reset()
+            self.lines[i].transform.translate((selected_path[0][0:2] * -1))
+            self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
+
+            for p_i, point in enumerate(selected_path):
+                if VECTOR_POINT and p_i != VECTOR_POINT: continue
+
+                # draw the angle
+                angle = (selected_paths[i][1] * SEGMENT_SIZE + p_i) % 361 # the index in data vector
+                v_x = math.cos(angle) * math.hypot(selected_path[p_i][2], selected_path[p_i][3])
+                v_y = math.sin(angle) * math.hypot(selected_path[p_i][2], selected_path[p_i][3])
+                vector = numpy.asarray([[0,0], [v_x, v_y]])
+
+                self.vectors[i][p_i][0].set_data(pos=vector, arrows=vector.reshape(1,4))
+                self.vectors[i][p_i][0].transform.reset()
+                self.vectors[i][p_i][0].transform.translate((selected_path[p_i][0:2]))
+                self.vectors[i][p_i][0].transform.translate((selected_path[0][0:2] * -1))
+                self.vectors[i][p_i][0].transform.translate(numpy.asarray(self.canvas.size) / 2)
+
 
     def draw_closest_with_team_vectors(self, ev):
         selected_paths = self.get_paths()
@@ -269,7 +298,8 @@ class Application(object):
 
     def run(self):
         self.timer = vispy.app.Timer(interval=1.0 / 30.0)
-        self.timer.connect(self.draw_closest_with_team_vectors)
+        self.timer.connect(self.draw_vector)
+        #self.timer.connect(self.draw_closest_with_team_vectors)
         #self.timer.connect(self.draw_along_closets_segment)
         self.timer.start(0.033) # 30 FPS
         vispy.app.run()
