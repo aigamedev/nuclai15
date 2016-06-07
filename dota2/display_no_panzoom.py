@@ -147,33 +147,9 @@ class Application(object):
             if len(random_path) and random_path[0][0] != random_path[-1][0] and random_path[0][1] != random_path[-1][1]:
                 refering_x = random_path[0][0]
                 refering_y = random_path[0][1]
-                """
-                path_distance = None
-                if len(self.selected_path) != 0:
-                    selected_path = self.segments[self.selected_path[0][2]][self.selected_path[0][1]]
-                    new_start_point_idx = len(selected_path) - 1
-                    if self.draw_along_closets_index > 0 and new_start_point_idx > self.draw_along_closets_index: 
-                        new_start_point_idx = self.draw_along_closets_index - 1
-                    if self.draw_along_closets_index >= len(selected_path):
-                        new_start_point_idx = len(selected_path) - 1
-
-                    selected_path = selected_path[new_start_point_idx] # the last drawn index in segment
-
-                    refering_x = random_path[0][2] - (selected_path[2] - self.selected_path[0][3][0])
-                    refering_y = random_path[0][3] - (selected_path[3] - self.selected_path[0][3][1])
-                """
-                # the single score calculated in place where the path ends makes sense for short paths,
-                # for longer paths it's better to either take the closest from given set or the aggregated sum? average?
-                """
-                for point_i in range(0, len(random_path), 10):
-                    point_distance = math.hypot(random_path[len(random_path) - 1 - point_i][2] - refering_x - self.mouse_xy[0], random_path[len(random_path) - 1 - point_i][3] - refering_y - self.mouse_xy[1])
-                    if path_distance == None or path_distance > point_distance: path_distance = point_distance
-                    # distance, segment_idx, hero_id, refering point
-                """
                 investiagted_point_idx = len(random_path) 
                 if MOVE_ALONG_STEP_SIZE < investiagted_point_idx: investiagted_point_idx = MOVE_ALONG_STEP_SIZE
                 investiagted_point_idx -= 1
-
                 point_distance = math.hypot(random_path[investiagted_point_idx][0] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][1] - refering_y - self.mouse_xy[1])
                 selected_paths.append([point_distance, path_idx, hero_id, numpy.asarray([refering_x, refering_y])])
 
@@ -281,10 +257,8 @@ class Application(object):
             self.lines[i].transform.reset()
             self.lines[i].transform.translate((self.selected_path[i][3] * -1))
 
-            # to have the player always in the screen center
-            #self.lines[i].transform.translate(self.selected_path[i][3] - marker_point)
             # to have [0,0] in the screen center
-            self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
+            #self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
             if i == 0:
                 # marker_point = selected_path[self.draw_along_closets_index][2:4]
