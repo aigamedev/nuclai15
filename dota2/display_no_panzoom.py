@@ -11,7 +11,7 @@ import math
 
 from vispy.geometry import curves
 
-SEGMENT_SIZE = 30
+SEGMENT_SIZE = 10
 MOVE_ALONG_STEP_SIZE = 15
 MARGIN = 2
 TOP_PATHS_NUMBER = 5
@@ -180,6 +180,7 @@ class Application(object):
             if i >= len(selected_paths):
                 # clear and skip
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
+
                 for p_i, point in enumerate(selected_path):
                     if SELECTED_POINT and p_i != VECTOR_POINT: continue
                     self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
@@ -188,8 +189,9 @@ class Application(object):
             selected_path = self.segments[selected_paths[i][2]][selected_paths[i][1]]
             self.lines[i].set_data(pos=selected_path[:,[0,1]])
             self.lines[i].transform.reset()
-            self.lines[i].transform.translate((selected_path[0][2:4] * -1))
+            self.lines[i].transform.translate((selected_path[0][0:2] * -1))
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
+
             for p_i, point in enumerate(selected_path):
                 if VECTOR_POINT and p_i != VECTOR_POINT: continue
                 nearest_frined = []
@@ -201,16 +203,16 @@ class Application(object):
                             hero_point = self.segments[hero_id][selected_paths[i][1]][p_i]
                             distance = math.hypot(hero_point[0] - point[0], hero_point[1] - point[1])
                             if self.user_team_lookup[hero_id] == self.user_team_lookup[selected_paths[i][2]]: # friend
-                                if len(nearest_frined) == 0 or nearest_frined[1] > distance: nearest_frined = (hero_id, distance, hero_point[2:4])
+                                if len(nearest_frined) == 0 or nearest_frined[1] > distance: nearest_frined = (hero_id, distance, hero_point[0:2])
                             else: # enemy
-                                if len(nearest_enemy) == 0 or nearest_enemy[1] > distance: nearest_enemy = (hero_id, distance, hero_point[2:4])
+                                if len(nearest_enemy) == 0 or nearest_enemy[1] > distance: nearest_enemy = (hero_id, distance, hero_point[0:2])
 
                 friend_vector = numpy.asarray([point[0:2], nearest_frined[2]]) if nearest_frined else numpy.asarray([[0,0],[0,0]])
                 self.vectors[i][p_i][0].set_data(pos=friend_vector, arrows=friend_vector.reshape(1,4))
                 self.vectors[i][p_i][0].transform.reset()
-                self.vectors[i][p_i][0].transform.translate((selected_path[0][2:4] * -1))
+                self.vectors[i][p_i][0].transform.translate((selected_path[0][0:2] * -1))
                 self.vectors[i][p_i][0].transform.translate(numpy.asarray(self.canvas.size) / 2)
-                enemy_vector = numpy.asarray([point[2:4], nearest_enemy[2]]) if nearest_enemy else numpy.asarray([[0,0],[0,0]])
+                enemy_vector = numpy.asarray([point[0:2], nearest_enemy[2]]) if nearest_enemy else numpy.asarray([[0,0],[0,0]])
                 self.vectors[i][p_i][1].set_data(pos=enemy_vector, arrows=enemy_vector.reshape(1,4))
 
 
@@ -267,8 +269,8 @@ class Application(object):
 
     def run(self):
         self.timer = vispy.app.Timer(interval=1.0 / 30.0)
-        #self.timer.connect(self.draw_closest_with_team_vectors)
-        self.timer.connect(self.draw_along_closets_segment)
+        self.timer.connect(self.draw_closest_with_team_vectors)
+        #self.timer.connect(self.draw_along_closets_segment)
         self.timer.start(0.033) # 30 FPS
         vispy.app.run()
 
