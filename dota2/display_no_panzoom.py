@@ -241,17 +241,12 @@ class Application(object):
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
                 continue
 
-            current = self.segments[self.selected_path[i][2]][self.selected_path[i][1]] # hero_id, segment_idx
-
-            # selected_path = selected_path[0:SEGMENT_SIZE]
-            # selected_path = selected_path[self.draw_along_closets_index:self.draw_along_closets_index+MOVE_ALONG_STEP_SIZE]
-            
+            current = self.segments[self.selected_path[i][2]][self.selected_path[i][1]] # hero_id, segment_idx 
             draw_to = MOVE_ALONG_STEP_SIZE
             if i == 0:
                 draw_to += self.draw_along_closets_index
 
-            current = current[0:draw_to] # self.draw_along_closets_index += MOVE_ALONG_STEP_SIZE
-
+            current = current[0:draw_to] 
             path_width = 5 if i == 0 else 1
             self.lines[i].set_data(pos=current[:,[0,1]], width=path_width)
             self.lines[i].transform.reset()
