@@ -258,7 +258,7 @@ class Application(object):
             self.lines[i].transform.translate((self.selected_path[i][3] * -1))
 
             # to have [0,0] in the screen center
-            #self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
+            self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
             if i == 0:
                 # marker_point = selected_path[self.draw_along_closets_index][2:4]
