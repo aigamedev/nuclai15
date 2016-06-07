@@ -74,12 +74,21 @@ class Application(object):
         for idx, row in enumerate(numpy.genfromtxt(os.path.join('csv', 'data.csv'), delimiter=',')):
             if idx == 0: continue
             hero_id = int(row[1])
-            coordinates = numpy.array(row)
+            coordinates = numpy.array(row[2:4])
             coordinates *= SCALE_FACTOR
             if hero_id in self.data: self.data[hero_id].append(numpy.array(coordinates))
             else: self.data[hero_id] = [coordinates]
             # players 0 - 4 belong to the first team 5 - 9 to the seond one - it comes from a replay data format
             if not hero_id in self.user_team_lookup: self.user_team_lookup[hero_id] = 1 if len(self.user_team_lookup.keys()) <= 4 else 2
+
+        # append offset
+        """
+        for hero_id in self.data.keys():
+            for idx_point, point in enumerate(self.data[hero_id]):
+                if idx == 0: offset = [0,0]
+                else: offset = math.hypot(point[], self.data[hero_id][idx_point-1])
+                self.data[hero_id] = numpy.array()
+        """
 
         # prepare smaller segments
         self.segments = {}
@@ -89,8 +98,8 @@ class Application(object):
             for idx, segment in enumerate(self.segments[hero_id]):
                 for idx_point, point in enumerate(segment): 
                     if idx == 0: continue
-                    if math.fabs(point[2] - segment[idx_point -1][2]) > TELEPORT_THRESHOLD or math.fabs(point[3] - segment[idx_point -1][3]) > TELEPORT_THRESHOLD:
-                        self.segments[hero_id][idx] = [] # skip teleoprts 
+                    if math.fabs(point[0] - segment[idx_point -1][0]) > TELEPORT_THRESHOLD or math.fabs(point[1] - segment[idx_point -1][1]) > TELEPORT_THRESHOLD:
+                        self.segments[hero_id][idx] = [] # skip teleports 
                         continue
             
         # Set 2D camera (the camera will scale to the contents in the scene)
@@ -136,9 +145,9 @@ class Application(object):
             path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
             random_path = self.segments[hero_id][path_idx]
             # ignore empty and these where player hasn't moved / @TODO: would be nice to have better heurstic to say if player moved or not
-            if len(random_path) and random_path[0][2] != random_path[-1][2] and random_path[0][3] != random_path[-1][3]:
-                refering_x = random_path[0][2]
-                refering_y = random_path[0][3]
+            if len(random_path) and random_path[0][0] != random_path[-1][0] and random_path[0][1] != random_path[-1][1]:
+                refering_x = random_path[0][0]
+                refering_y = random_path[0][1]
                 """
                 path_distance = None
                 if len(self.selected_path) != 0:
@@ -166,19 +175,19 @@ class Application(object):
                 if MOVE_ALONG_STEP_SIZE < investiagted_point_idx: investiagted_point_idx = MOVE_ALONG_STEP_SIZE
                 investiagted_point_idx -= 1
 
-                point_distance = math.hypot(random_path[investiagted_point_idx][2] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][3] - refering_y - self.mouse_xy[1])
+                point_distance = math.hypot(random_path[investiagted_point_idx][0] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][1] - refering_y - self.mouse_xy[1])
                 selected_paths.append([point_distance, path_idx, hero_id, numpy.asarray([refering_x, refering_y])])
 
         for path in seed:
             random_path = self.segments[path[2]][path[1]]
-            refering_x = random_path[self.draw_along_closets_index][2] # this is new center
-            refering_y = random_path[self.draw_along_closets_index][3] # this is new center
+            refering_x = random_path[self.draw_along_closets_index][0] # this is new center
+            refering_y = random_path[self.draw_along_closets_index][1] # this is new center
 
             investiagted_point_idx = len(random_path) 
             if MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index < investiagted_point_idx: investiagted_point_idx = MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index
             investiagted_point_idx -= 1
 
-            point_distance = math.hypot(random_path[investiagted_point_idx][2] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][3] - refering_y - self.mouse_xy[1])
+            point_distance = math.hypot(random_path[investiagted_point_idx][0] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][1] - refering_y - self.mouse_xy[1])
             path[0] = point_distance
             path[3] = numpy.asarray([refering_x, refering_y])
             selected_paths.append(path)
@@ -202,7 +211,7 @@ class Application(object):
                     self.vectors[i][p_i][1].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
             selected_path = self.segments[selected_paths[i][2]][selected_paths[i][1]]
-            self.lines[i].set_data(pos=selected_path[:,[2,3]])
+            self.lines[i].set_data(pos=selected_path[:,[0,1]])
             self.lines[i].transform.reset()
             self.lines[i].transform.translate((selected_path[0][2:4] * -1))
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
@@ -215,13 +224,13 @@ class Application(object):
                     if hero_id != selected_paths[i][2]: # it's not the own player
                         if hero_id in self.segments and len(self.segments[hero_id]) > selected_paths[i][1] and len(self.segments[hero_id][selected_paths[i][1]]) > 0:
                             hero_point = self.segments[hero_id][selected_paths[i][1]][p_i]
-                            distance = math.hypot(hero_point[2] - point[2], hero_point[3] - point[3])
+                            distance = math.hypot(hero_point[0] - point[0], hero_point[1] - point[1])
                             if self.user_team_lookup[hero_id] == self.user_team_lookup[selected_paths[i][2]]: # friend
                                 if len(nearest_frined) == 0 or nearest_frined[1] > distance: nearest_frined = (hero_id, distance, hero_point[2:4])
                             else: # enemy
                                 if len(nearest_enemy) == 0 or nearest_enemy[1] > distance: nearest_enemy = (hero_id, distance, hero_point[2:4])
 
-                friend_vector = numpy.asarray([point[2:4], nearest_frined[2]]) if nearest_frined else numpy.asarray([[0,0],[0,0]])
+                friend_vector = numpy.asarray([point[0:2], nearest_frined[2]]) if nearest_frined else numpy.asarray([[0,0],[0,0]])
                 self.vectors[i][p_i][0].set_data(pos=friend_vector, arrows=friend_vector.reshape(1,4))
                 self.vectors[i][p_i][0].transform.reset()
                 self.vectors[i][p_i][0].transform.translate((selected_path[0][2:4] * -1))
@@ -269,9 +278,8 @@ class Application(object):
             current = current[0:draw_to] # self.draw_along_closets_index += MOVE_ALONG_STEP_SIZE
 
             path_width = 5 if i == 0 else 1
-            self.lines[i].set_data(pos=current[:,[2,3]], width=path_width)
+            self.lines[i].set_data(pos=current[:,[0,1]], width=path_width)
             self.lines[i].transform.reset()
-            print(self.selected_path[i][3] * -1, i)
             self.lines[i].transform.translate((self.selected_path[i][3] * -1))
 
             # to have the player always in the screen center
