@@ -12,6 +12,15 @@ import math
 from vispy.geometry import curves
 
 
+SELECTED_PATH_WIDTH = 5
+PATH_WIDTH = 1
+SELECTED_ARROW_SIZE = 20.0
+ARROW_SIZE = 14.0
+
+#colors
+COLOR_NEUTRAL = numpy.asarray([0.5,0.5,0.5])
+COLOR_SELECTED = numpy.asarray([0.8,0.2,0.8])
+
 class Application(object):
 
     SEGMENT_SIZE = 30
@@ -45,17 +54,21 @@ class Application(object):
         self.vectors = []
         self.colors = []
         for i in range(self.TOP_PATHS_NUMBER):
+            path_width = SELECTED_PATH_WIDTH if i == 0 else PATH_WIDTH
+            arrow_size = SELECTED_ARROW_SIZE if i == 0 else ARROW_SIZE
+            color = COLOR_SELECTED if i == 0 else COLOR_NEUTRAL
             vectors_line = []
-            color = numpy.random.rand(3)
+            #color = numpy.random.rand(3)
             self.colors.append(color)
-            line = vispy.scene.Line(parent=self.view.scene, color=color, width=3, connect='strip', method='agg')
+
+            line = vispy.scene.Line(parent=self.view.scene, color=color, connect='strip', method='agg', width=path_width)
             line.transform = vispy.visuals.transforms.MatrixTransform()
             self.lines.append(line)
             for j in range(self.SEGMENT_SIZE):
                 if not self.VECTOR_POINT or self.VECTOR_POINT == j:
-                    arr1 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=2, method='agg', arrow_size=20.0)
+                    arr1 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, method='agg', arrow_size=arrow_size, width=path_width)
                     arr1.transform = vispy.visuals.transforms.MatrixTransform()
-                    arr2 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=2, method='agg', arrow_size=20.0)
+                    arr2 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, method='agg', arrow_size=arrow_size, width=path_width)
                     arr2.transform = arr1.transform
                     self.marker.transform = arr1.transform
                     vectors_line.append([arr1, arr2])
@@ -151,20 +164,26 @@ class Application(object):
             if len(random_path) and random_path[0][0] != random_path[-1][0] and random_path[0][1] != random_path[-1][1]:
                 refering_x = random_path[0][0]
                 refering_y = random_path[0][1]
-                investiagted_point_idx = len(random_path) 
-                if self.MOVE_ALONG_STEP_SIZE < investiagted_point_idx: investiagted_point_idx = self.MOVE_ALONG_STEP_SIZE
-                investiagted_point_idx -= 1
+                investiagted_point_idx = self.MOVE_ALONG_STEP_SIZE
                 point_distance = math.hypot(random_path[investiagted_point_idx][0] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][1] - refering_y - self.mouse_xy[1])
                 selected_paths.append([point_distance, path_idx, hero_id, numpy.asarray([refering_x, refering_y])])
 
         for path in seed:
             random_path = self.segments[path[2]][path[1]]
-            refering_x = random_path[self.draw_along_closets_index][0] # this is new center
-            refering_y = random_path[self.draw_along_closets_index][1] # this is new center
 
-            investiagted_point_idx = len(random_path) 
-            if self.MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index < investiagted_point_idx: investiagted_point_idx = self.MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index
-            investiagted_point_idx -= 1
+            investiagted_point_idx = self.MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index
+            if investiagted_point_idx >= len(random_path):
+                # get into next segment
+                # check which one and if it exists
+                segments_jump = (self.MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index) // self.SEGMENT_SIZE
+                if path[1] < len(self.segments[path[2]]) and len(self.segments[path[2]][path[1] + segments_jump]):
+                    random_path = self.segments[path[2]][path[1] + segments_jump]
+                    investiagted_point_idx = investiagted_point_idx % self.SEGMENT_SIZE
+                else:
+                    continue # path has ended
+
+            refering_x = random_path[self.draw_along_closets_index % self.SEGMENT_SIZE][0] # this is new center
+            refering_y = random_path[self.draw_along_closets_index % self.SEGMENT_SIZE][1] #
 
             point_distance = math.hypot(random_path[investiagted_point_idx][0] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][1] - refering_y - self.mouse_xy[1])
             path[0] = point_distance
@@ -264,10 +283,9 @@ class Application(object):
                 self.draw_along_closets_index = 0
             self.selected_path = selected_paths[:self.TOP_PATHS_NUMBER]
         full_path_len = len(self.segments[self.selected_path[0][2]][self.selected_path[0][1]])
-        if self.draw_along_closets_index > full_path_len - self.MOVE_ALONG_STEP_SIZE:
-            self.mouse_moved = True
-            return # end of path
-
+        #if self.draw_along_closets_index > full_path_len - self.MOVE_ALONG_STEP_SIZE:
+        #    self.mouse_moved = True
+        #    return # end of path
 
         for i in range(self.TOP_PATHS_NUMBER):
             if i >= len(self.selected_path):
@@ -280,9 +298,17 @@ class Application(object):
             if i == 0:
                 draw_to += self.draw_along_closets_index
 
-            current = current[0:draw_to] 
-            path_width = 5 if i == 0 else 1
-            self.lines[i].set_data(pos=current[:,[0,1]], width=path_width)
+                segments_jump = draw_to // self.SEGMENT_SIZE
+                for jump in range(segments_jump):
+                    current  = numpy.concatenate((current, self.segments[self.selected_path[i][2]][self.selected_path[i][1] + jump + 1]))
+
+            current = current[0:draw_to]
+            # append short history
+
+            if i == 0 and self.selected_path[i][1] > 0 and len(self.segments[self.selected_path[i][2]][self.selected_path[i][1] - 1]) > 0:
+                current = numpy.concatenate((self.segments[self.selected_path[i][2]][self.selected_path[i][1] - 1][-10:], current))
+
+            self.lines[i].set_data(pos=current[:,[0,1]])
             self.lines[i].transform.reset()
             self.lines[i].transform.translate((self.selected_path[i][3] * -1))
 
@@ -301,7 +327,6 @@ class Application(object):
 
     def run(self):
         self.timer = vispy.app.Timer(interval=1.0 / 30.0)
-        print(self.example_idx)
         if self.example_idx == 0:
             self.timer.connect(self.draw_vector)
         elif self.example_idx == 1:
