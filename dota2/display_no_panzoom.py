@@ -34,6 +34,7 @@ class Application(object):
         if example_idx != 2:
             # shorten segment_size, the examples 0 and 1 display the whole segment, only the example 2 advance
             self.SEGMENT_SIZE = 10
+            self.VECTOR_POINT = int(self.SEGMENT_SIZE / 2)
 
         self.example_idx = example_idx
         self.widget = self.canvas.central_widget
@@ -143,7 +144,7 @@ class Application(object):
         selected_paths = []
 
         for i in range(self.SAMPLE_SIZE):
-            hero_id = random.choice(self.data.keys())
+            hero_id = random.choice(list(self.data.keys()))
             path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
             random_path = self.segments[hero_id][path_idx]
             # ignore empty and these where player hasn't moved / @TODO: would be nice to have better heurstic to say if player moved or not
@@ -180,7 +181,7 @@ class Application(object):
                 # clear and skip
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
                 for p_i, point in enumerate(selected_path):
-                    if SELECTED_POINT and p_i != self.VECTOR_POINT: continue
+                    if self.VECTOR_POINT and p_i != self.VECTOR_POINT: continue
                     self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
             selected_path = self.segments[selected_paths[i][2]][selected_paths[i][1]]
@@ -213,7 +214,7 @@ class Application(object):
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
 
                 for p_i, point in enumerate(selected_path):
-                    if SELECTED_POINT and p_i != self.VECTOR_POINT: continue
+                    if self.VECTOR_POINT and p_i != self.VECTOR_POINT: continue
                     self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
                     self.vectors[i][p_i][1].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
