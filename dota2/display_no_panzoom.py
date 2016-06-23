@@ -11,22 +11,19 @@ import math
 
 from vispy.geometry import curves
 
-SEGMENT_SIZE = 10
-#SEGMENT_SIZE = 30
-MOVE_ALONG_STEP_SIZE = 15
-MARGIN = 2
-TOP_PATHS_NUMBER = 5
-SAMPLE_SIZE = 150
-SCALE_FACTOR = 200
-VECTOR_POINT = int(SEGMENT_SIZE / 2) # the point whre we draw vectors from, if None - we draw vectors for each point
-TELEPORT_THRESHOLD = 40 # it defines a disatnce where we elimiate a segment - we skip all teleports
-
 
 class Application(object):
 
-    recipe = []
+    SEGMENT_SIZE = 30
+    MOVE_ALONG_STEP_SIZE = 15
+    TOP_PATHS_NUMBER = 5
+    SAMPLE_SIZE = 150
+    SCALE_FACTOR = 200
+    VECTOR_POINT = int(SEGMENT_SIZE / 2) # the point whre we draw vectors from, if None - we draw vectors for each point
+    TELEPORT_THRESHOLD = 40 # it defines a disatnce where we elimiate a segment - we skip all teleports
 
-    def __init__(self, title='dota2'): #, range=(0,850)):
+
+    def __init__(self, example_idx, title='nucl.ai16'): #, range=(0,850)):
         self.canvas = vispy.scene.SceneCanvas(
                                 title=title,
                                 size=(1280, 720),
@@ -34,6 +31,11 @@ class Application(object):
                                 show=False,
                                 keys='interactive')
 
+        if example_idx != 2:
+            # shorten segment_size, the examples 0 and 1 display the whole segment, only the example 2 advance
+            self.SEGMENT_SIZE = 10
+
+        self.example_idx = example_idx
         self.widget = self.canvas.central_widget
         self.view = self.canvas.central_widget.add_view()
         self.marker = vispy.scene.Markers(pos=numpy.asarray([[0,0]]), face_color='red', size=0, parent=self.view.scene)
@@ -41,15 +43,15 @@ class Application(object):
         self.lines = []
         self.vectors = []
         self.colors = []
-        for i in range(TOP_PATHS_NUMBER):
+        for i in range(self.TOP_PATHS_NUMBER):
             vectors_line = []
             color = numpy.random.rand(3)
             self.colors.append(color)
             line = vispy.scene.Line(parent=self.view.scene, color=color, width=3, connect='strip', method='agg')
             line.transform = vispy.visuals.transforms.MatrixTransform()
             self.lines.append(line)
-            for j in range(SEGMENT_SIZE):
-                if not VECTOR_POINT or VECTOR_POINT == j:
+            for j in range(self.SEGMENT_SIZE):
+                if not self.VECTOR_POINT or self.VECTOR_POINT == j:
                     arr1 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=2, method='agg', arrow_size=20.0)
                     arr1.transform = vispy.visuals.transforms.MatrixTransform()
                     arr2 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, width=2, method='agg', arrow_size=20.0)
@@ -66,7 +68,7 @@ class Application(object):
         self.draw_along_closets_index = 0
 
         # init mouse with some random value
-        self.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * SCALE_FACTOR
+        self.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * self.SCALE_FACTOR
 
         # read data
         self.data = {}
@@ -76,7 +78,7 @@ class Application(object):
             if idx == 0: continue
             hero_id = int(row[1])
             coordinates = numpy.array(row[2:4])
-            coordinates *= SCALE_FACTOR
+            coordinates *= self.SCALE_FACTOR
             if hero_id in self.data: self.data[hero_id].append(numpy.array(coordinates))
             else: self.data[hero_id] = [coordinates]
             # players 0 - 4 belong to the first team 5 - 9 to the seond one - it comes from a replay data format
@@ -93,11 +95,11 @@ class Application(object):
         self.segments = {}
         for hero_id in self.data.keys():
             # self.segments[hero_id] = numpy.asarray([self.data[hero_id][i:i+SEGMENT_SIZE] for i in range(0, len(self.data[hero_id]), SEGMENT_SIZE)])
-            self.segments[hero_id] = numpy.array_split( self.data[hero_id], math.ceil(len(self.data[hero_id]) / float(SEGMENT_SIZE)) )
+            self.segments[hero_id] = numpy.array_split( self.data[hero_id], math.ceil(len(self.data[hero_id]) / float(self.SEGMENT_SIZE)) )
             for idx, segment in enumerate(self.segments[hero_id]):
                 for idx_point, point in enumerate(segment): 
                     if idx_point == 0: continue
-                    if math.hypot(point[2], point[3]) > TELEPORT_THRESHOLD:
+                    if math.hypot(point[2], point[3]) > self.TELEPORT_THRESHOLD:
                     #if math.fabs(point[0] - segment[idx_point -1][0]) > TELEPORT_THRESHOLD or math.fabs(point[1] - segment[idx_point -1][1]) > TELEPORT_THRESHOLD:
                         self.segments[hero_id][idx] = [] # skip teleports 
                         continue
@@ -130,7 +132,7 @@ class Application(object):
 
         @self.canvas.events.mouse_move.connect
         def on_mouse_move(event):
-            self.mouse_xy = (numpy.asarray(self.view.camera.transform.imap(event.pos)) - numpy.asarray(self.canvas.size) / 2) * SCALE_FACTOR
+            self.mouse_xy = (numpy.asarray(self.view.camera.transform.imap(event.pos)) - numpy.asarray(self.canvas.size) / 2) * self.SCALE_FACTOR
             self.mouse_moved = True
 
         @self.canvas.events.draw.connect
@@ -140,7 +142,7 @@ class Application(object):
     def get_paths(self, seed = []):
         selected_paths = []
 
-        for i in range(SAMPLE_SIZE):
+        for i in range(self.SAMPLE_SIZE):
             hero_id = random.choice(self.data.keys())
             path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
             random_path = self.segments[hero_id][path_idx]
@@ -149,7 +151,7 @@ class Application(object):
                 refering_x = random_path[0][0]
                 refering_y = random_path[0][1]
                 investiagted_point_idx = len(random_path) 
-                if MOVE_ALONG_STEP_SIZE < investiagted_point_idx: investiagted_point_idx = MOVE_ALONG_STEP_SIZE
+                if self.MOVE_ALONG_STEP_SIZE < investiagted_point_idx: investiagted_point_idx = self.MOVE_ALONG_STEP_SIZE
                 investiagted_point_idx -= 1
                 point_distance = math.hypot(random_path[investiagted_point_idx][0] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][1] - refering_y - self.mouse_xy[1])
                 selected_paths.append([point_distance, path_idx, hero_id, numpy.asarray([refering_x, refering_y])])
@@ -160,7 +162,7 @@ class Application(object):
             refering_y = random_path[self.draw_along_closets_index][1] # this is new center
 
             investiagted_point_idx = len(random_path) 
-            if MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index < investiagted_point_idx: investiagted_point_idx = MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index
+            if self.MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index < investiagted_point_idx: investiagted_point_idx = self.MOVE_ALONG_STEP_SIZE + self.draw_along_closets_index
             investiagted_point_idx -= 1
 
             point_distance = math.hypot(random_path[investiagted_point_idx][0] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][1] - refering_y - self.mouse_xy[1])
@@ -173,12 +175,12 @@ class Application(object):
 
     def draw_vector(self, ev):
         selected_paths = self.get_paths()
-        for i in range(TOP_PATHS_NUMBER):
+        for i in range(self.TOP_PATHS_NUMBER):
             if i >= len(selected_paths):
                 # clear and skip
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
                 for p_i, point in enumerate(selected_path):
-                    if SELECTED_POINT and p_i != VECTOR_POINT: continue
+                    if SELECTED_POINT and p_i != self.VECTOR_POINT: continue
                     self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
             selected_path = self.segments[selected_paths[i][2]][selected_paths[i][1]]
@@ -188,10 +190,10 @@ class Application(object):
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
             for p_i, point in enumerate(selected_path):
-                if VECTOR_POINT and p_i != VECTOR_POINT: continue
+                if self.VECTOR_POINT and p_i != self.VECTOR_POINT: continue
 
                 # draw the angle
-                angle = (selected_paths[i][1] * SEGMENT_SIZE + p_i) % 361 # the index in data vector
+                angle = (selected_paths[i][1] * self.SEGMENT_SIZE + p_i) % 361 # the index in data vector
                 v_x = math.cos(angle) * math.hypot(selected_path[p_i][2], selected_path[p_i][3])
                 v_y = math.sin(angle) * math.hypot(selected_path[p_i][2], selected_path[p_i][3])
                 vector = numpy.asarray([[0,0], [v_x, v_y]])
@@ -205,13 +207,13 @@ class Application(object):
 
     def draw_closest_with_team_vectors(self, ev):
         selected_paths = self.get_paths()
-        for i in range(TOP_PATHS_NUMBER):
+        for i in range(self.TOP_PATHS_NUMBER):
             if i >= len(selected_paths):
                 # clear and skip
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
 
                 for p_i, point in enumerate(selected_path):
-                    if SELECTED_POINT and p_i != VECTOR_POINT: continue
+                    if SELECTED_POINT and p_i != self.VECTOR_POINT: continue
                     self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
                     self.vectors[i][p_i][1].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
@@ -222,7 +224,7 @@ class Application(object):
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
             for p_i, point in enumerate(selected_path):
-                if VECTOR_POINT and p_i != VECTOR_POINT: continue
+                if self.VECTOR_POINT and p_i != self.VECTOR_POINT: continue
                 nearest_frined = []
                 nearest_enemy = []
                 # get the nearest friend / enemy to 
@@ -250,7 +252,7 @@ class Application(object):
             self.draw_along_closets_index = 0
             selected_paths = self.get_paths()
             if len(selected_paths) > 0:
-                self.selected_path = selected_paths[:TOP_PATHS_NUMBER]
+                self.selected_path = selected_paths[:self.TOP_PATHS_NUMBER]
                 self.mouse_moved = False
             else: return
         else:
@@ -259,21 +261,21 @@ class Application(object):
             if selected_paths[0][1] != self.selected_path[0][1] or selected_paths[0][2] != self.selected_path[0][2]:
                 # new path
                 self.draw_along_closets_index = 0
-            self.selected_path = selected_paths[:TOP_PATHS_NUMBER]
+            self.selected_path = selected_paths[:self.TOP_PATHS_NUMBER]
         full_path_len = len(self.segments[self.selected_path[0][2]][self.selected_path[0][1]])
-        if self.draw_along_closets_index > full_path_len - MOVE_ALONG_STEP_SIZE:
+        if self.draw_along_closets_index > full_path_len - self.MOVE_ALONG_STEP_SIZE:
             self.mouse_moved = True
             return # end of path
 
 
-        for i in range(TOP_PATHS_NUMBER):
+        for i in range(self.TOP_PATHS_NUMBER):
             if i >= len(self.selected_path):
                 # clear and skip
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
                 continue
 
             current = self.segments[self.selected_path[i][2]][self.selected_path[i][1]] # hero_id, segment_idx 
-            draw_to = MOVE_ALONG_STEP_SIZE
+            draw_to = self.MOVE_ALONG_STEP_SIZE
             if i == 0:
                 draw_to += self.draw_along_closets_index
 
@@ -298,9 +300,13 @@ class Application(object):
 
     def run(self):
         self.timer = vispy.app.Timer(interval=1.0 / 30.0)
-        self.timer.connect(self.draw_vector)
-        #self.timer.connect(self.draw_closest_with_team_vectors)
-        #self.timer.connect(self.draw_along_closets_segment)
+        print(self.example_idx)
+        if self.example_idx == 0:
+            self.timer.connect(self.draw_vector)
+        elif self.example_idx == 1:
+            self.timer.connect(self.draw_closest_with_team_vectors)
+        elif self.example_idx == 2:
+            self.timer.connect(self.draw_along_closets_segment)
         self.timer.start(0.033) # 30 FPS
         vispy.app.run()
 
@@ -308,6 +314,10 @@ class Application(object):
 if __name__ == "__main__":
     vispy.set_log_level('WARNING')
     vispy.use(app='glfw')
-    
-    app = Application()
+
+    import argparse
+    parser = argparse.ArgumentParser(description='nucl.ai16')
+    parser.add_argument('-e','--example', help='Description for foo argument', default=0, type=int)
+    args = parser.parse_args()
+    app = Application(args.example)
     app.run()
