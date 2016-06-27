@@ -24,11 +24,9 @@ COLOR_SELECTED = numpy.asarray([0.8,0.2,0.8])
 class Application(object):
 
     SEGMENT_SIZE = 30
-    MOVE_ALONG_STEP_SIZE = 15
     TOP_PATHS_NUMBER = 5
     SAMPLE_SIZE = 150
     SCALE_FACTOR = 200
-    VECTOR_POINT = int(SEGMENT_SIZE / 2) # the point whre we draw vectors from, if None - we draw vectors for each point
     TELEPORT_THRESHOLD = 40 # it defines a disatnce where we elimiate a segment - we skip all teleports
 
 
@@ -43,8 +41,10 @@ class Application(object):
         if example_idx != 2:
             # shorten segment_size, the examples 0 and 1 display the whole segment, only the example 2 advance
             self.SEGMENT_SIZE = 10
-            self.VECTOR_POINT = int(self.SEGMENT_SIZE / 2)
 
+        self.VECTOR_POINT = int(self.SEGMENT_SIZE / 2)
+        self.MOVE_ALONG_STEP_SIZE = int(self.SEGMENT_SIZE / 2)
+        
         self.example_idx = example_idx
         self.widget = self.canvas.central_widget
         self.view = self.canvas.central_widget.add_view()
@@ -81,8 +81,9 @@ class Application(object):
         self.mouse_moved = True
         self.draw_along_closets_index = 0
 
-        # init mouse with some random value
+        # init the searched point with some random value - after first mouse move it's a
         self.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * self.SCALE_FACTOR
+        self.camera_xy = (0,0) 
 
         # read data
         self.data = {}
