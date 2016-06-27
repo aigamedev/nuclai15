@@ -83,7 +83,6 @@ class Application(object):
 
         # init the searched point with some random value - after first mouse move it's a
         self.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * self.SCALE_FACTOR
-        self.camera_xy = (0,0) 
 
         # read data
         self.data = {}
@@ -109,21 +108,13 @@ class Application(object):
         # prepare smaller segments
         self.segments = {}
         for hero_id in self.data.keys():
-            # self.segments[hero_id] = numpy.asarray([self.data[hero_id][i:i+SEGMENT_SIZE] for i in range(0, len(self.data[hero_id]), SEGMENT_SIZE)])
             self.segments[hero_id] = numpy.array_split( self.data[hero_id], math.ceil(len(self.data[hero_id]) / float(self.SEGMENT_SIZE)) )
             for idx, segment in enumerate(self.segments[hero_id]):
                 for idx_point, point in enumerate(segment): 
                     if idx_point == 0: continue
                     if math.hypot(point[2], point[3]) > self.TELEPORT_THRESHOLD:
-                    #if math.fabs(point[0] - segment[idx_point -1][0]) > TELEPORT_THRESHOLD or math.fabs(point[1] - segment[idx_point -1][1]) > TELEPORT_THRESHOLD:
                         self.segments[hero_id][idx] = [] # skip teleports 
                         continue
-
-        # Set 2D camera (the camera will scale to the contents in the scene)
-        #self.view.camera = vispy.scene.PanZoomCamera(aspect=1)
-        # flip y-axis to have correct aligment
-        #self.view.camera.flip = (0, 1, 0)
-        #self.view.camera.set_range(range)
 
         self.grid = vispy.scene.visuals.GridLines(parent=self.view.scene, color=(1, 1, 1, 1))
         self.grid.transform = vispy.visuals.transforms.MatrixTransform()
@@ -135,9 +126,11 @@ class Application(object):
 
         @self.canvas.events.key_press.connect
         def on_key_press(event):
-            if self.timer_toggle: self.timer.stop()
-            else: self.timer.start()
-            self.timer_toggle = not self.timer_toggle
+            print(event.key.name)
+            if event.key.name == 'Meta':
+                if self.timer_toggle: self.timer.stop()
+                else: self.timer.start()
+                self.timer_toggle = not self.timer_toggle
 
         @self.canvas.events.resize.connect
         def on_resize(event):
@@ -284,9 +277,6 @@ class Application(object):
                 self.draw_along_closets_index = 0
             self.selected_path = selected_paths[:self.TOP_PATHS_NUMBER]
         full_path_len = len(self.segments[self.selected_path[0][2]][self.selected_path[0][1]])
-        #if self.draw_along_closets_index > full_path_len - self.MOVE_ALONG_STEP_SIZE:
-        #    self.mouse_moved = True
-        #    return # end of path
 
         for i in range(self.TOP_PATHS_NUMBER):
             if i >= len(self.selected_path):
