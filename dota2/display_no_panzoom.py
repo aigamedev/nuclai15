@@ -261,8 +261,6 @@ class Application(object):
 
     def draw_along_closets_segment(self, ev):
 
-        is_init = len(self.selected_path) == 0
-
         if len(self.selected_path) == 0 or self.mouse_moved:
             self.draw_along_closets_index = 0
             selected_paths = self.get_paths()
@@ -280,10 +278,6 @@ class Application(object):
             self.selected_path = selected_paths[:self.TOP_PATHS_NUMBER]
         full_path_len = len(self.segments[self.selected_path[0][2]][self.selected_path[0][1]])
 
-        #if not is_init:
-        #    self.draw_along_closets_index += 1
-
-        initial_player_position = self.player_position
         for i in range(self.TOP_PATHS_NUMBER):
             if i >= len(self.selected_path):
                 # clear and skip
@@ -301,9 +295,8 @@ class Application(object):
                     current  = numpy.concatenate((current, self.segments[self.selected_path[i][2]][self.selected_path[i][1] + jump + 1]))
 
                 if self.draw_along_closets_index != 0:
-                    pass
                     # update player position
-                    # self.player_position = self.player_position + current[self.draw_along_closets_index][0:2] - current[self.draw_along_closets_index-1][0:2]
+                    self.player_position = self.player_position + current[self.draw_along_closets_index][0:2] - current[self.draw_along_closets_index-1][0:2]
 
                 marker_point = current[self.draw_along_closets_index][0:2]
 
