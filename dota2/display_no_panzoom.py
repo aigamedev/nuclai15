@@ -23,7 +23,7 @@ COLOR_SELECTED = numpy.asarray([0.8,0.2,0.8])
 
 class Application(object):
 
-    SEGMENT_SIZE = 30
+    SEGMENT_SIZE = 20
     TOP_PATHS_NUMBER = 5
     SAMPLE_SIZE = 150
     SCALE_FACTOR = 200
@@ -83,7 +83,7 @@ class Application(object):
 
         # init the searched point with some random value - after first mouse move it's a
         self.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * self.SCALE_FACTOR
-
+        self.player_position = numpy.asarray([0,0])
         # read data
         self.data = {}
         self.user_team_lookup = {}
@@ -127,7 +127,7 @@ class Application(object):
         @self.canvas.events.key_press.connect
         def on_key_press(event):
             print(event.key.name)
-            if event.key.name == 'Meta':
+            if event.key.name == ' ':
                 if self.timer_toggle: self.timer.stop()
                 else: self.timer.start()
                 self.timer_toggle = not self.timer_toggle
@@ -149,18 +149,18 @@ class Application(object):
 
     def get_paths(self, seed = []):
         selected_paths = []
-
+        player_point = self.player_position * self.SCALE_FACTOR
+        print(player_point, self.mouse_xy)
         for i in range(self.SAMPLE_SIZE):
             hero_id = random.choice(list(self.data.keys()))
             path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
             random_path = self.segments[hero_id][path_idx]
             # ignore empty and these where player hasn't moved / @TODO: would be nice to have better heurstic to say if player moved or not
             if len(random_path) and random_path[0][0] != random_path[-1][0] and random_path[0][1] != random_path[-1][1]:
-                refering_x = random_path[0][0]
-                refering_y = random_path[0][1]
+                refering_point = random_path[0][0:2]
                 investiagted_point_idx = self.MOVE_ALONG_STEP_SIZE
-                point_distance = math.hypot(random_path[investiagted_point_idx][0] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][1] - refering_y - self.mouse_xy[1])
-                selected_paths.append([point_distance, path_idx, hero_id, numpy.asarray([refering_x, refering_y])])
+                point_distance = math.hypot(random_path[investiagted_point_idx][0] - refering_point[0] + player_point[0] - self.mouse_xy[0], random_path[investiagted_point_idx][1] - refering_point[1] + player_point[1] - self.mouse_xy[1])
+                selected_paths.append([point_distance, path_idx, hero_id, refering_point])
 
         for path in seed:
             random_path = self.segments[path[2]][path[1]]
@@ -176,12 +176,10 @@ class Application(object):
                 else:
                     continue # path has ended
 
-            refering_x = random_path[self.draw_along_closets_index % self.SEGMENT_SIZE][0] # this is new center
-            refering_y = random_path[self.draw_along_closets_index % self.SEGMENT_SIZE][1] #
-
-            point_distance = math.hypot(random_path[investiagted_point_idx][0] - refering_x - self.mouse_xy[0], random_path[investiagted_point_idx][1] - refering_y - self.mouse_xy[1])
+            refering_point = random_path[self.draw_along_closets_index % self.SEGMENT_SIZE][0:2]
+            point_distance = math.hypot(random_path[investiagted_point_idx][0] - refering_point[0] + player_point[0] - self.mouse_xy[0], random_path[investiagted_point_idx][1] - refering_point[1] + player_point[1] - self.mouse_xy[1])
             path[0] = point_distance
-            path[3] = numpy.asarray([refering_x, refering_y])
+            path[3] = refering_point
             selected_paths.append(path)
 
         selected_paths.sort(key=lambda x: x[0])
@@ -262,6 +260,9 @@ class Application(object):
 
 
     def draw_along_closets_segment(self, ev):
+
+        is_init = len(self.selected_path) == 0
+
         if len(self.selected_path) == 0 or self.mouse_moved:
             self.draw_along_closets_index = 0
             selected_paths = self.get_paths()
@@ -275,9 +276,14 @@ class Application(object):
             if selected_paths[0][1] != self.selected_path[0][1] or selected_paths[0][2] != self.selected_path[0][2]:
                 # new path
                 self.draw_along_closets_index = 0
+
             self.selected_path = selected_paths[:self.TOP_PATHS_NUMBER]
         full_path_len = len(self.segments[self.selected_path[0][2]][self.selected_path[0][1]])
 
+        #if not is_init:
+        #    self.draw_along_closets_index += 1
+
+        initial_player_position = self.player_position
         for i in range(self.TOP_PATHS_NUMBER):
             if i >= len(self.selected_path):
                 # clear and skip
@@ -286,6 +292,7 @@ class Application(object):
 
             current = self.segments[self.selected_path[i][2]][self.selected_path[i][1]] # hero_id, segment_idx 
             draw_to = self.MOVE_ALONG_STEP_SIZE
+
             if i == 0:
                 draw_to += self.draw_along_closets_index
 
@@ -293,25 +300,31 @@ class Application(object):
                 for jump in range(segments_jump):
                     current  = numpy.concatenate((current, self.segments[self.selected_path[i][2]][self.selected_path[i][1] + jump + 1]))
 
+                if self.draw_along_closets_index != 0:
+                    pass
+                    # update player position
+                    # self.player_position = self.player_position + current[self.draw_along_closets_index][0:2] - current[self.draw_along_closets_index-1][0:2]
+
+                marker_point = current[self.draw_along_closets_index][0:2]
+
             current = current[0:draw_to]
             # append short history
-
             if i == 0 and self.selected_path[i][1] > 0 and len(self.segments[self.selected_path[i][2]][self.selected_path[i][1] - 1]) > 0:
-                current = numpy.concatenate((self.segments[self.selected_path[i][2]][self.selected_path[i][1] - 1][-10:], current))
+                current = numpy.concatenate((self.segments[self.selected_path[i][2]][self.selected_path[i][1] - 1][-self.MOVE_ALONG_STEP_SIZE/3:], current))
 
             self.lines[i].set_data(pos=current[:,[0,1]])
             self.lines[i].transform.reset()
             self.lines[i].transform.translate((self.selected_path[i][3] * -1))
-
+            self.lines[i].transform.translate(self.player_position)
             # to have [0,0] in the screen center
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
             if i == 0:
                 # marker_point = selected_path[self.draw_along_closets_index][2:4]
-                self.marker.set_data(pos=numpy.asarray([self.selected_path[i][3]]), face_color=self.colors[i], size=15)
+                #self.marker.set_data(pos=numpy.asarray([self.selected_path[i][3]]), face_color=self.colors[i], size=15)
+                self.marker.set_data(pos=numpy.asarray([marker_point]), face_color=self.colors[i], size=15)
                 self.marker.transform = self.lines[i].transform
         self.draw_along_closets_index += 1
-
 
     def process(self, _):
         return
@@ -324,7 +337,7 @@ class Application(object):
             self.timer.connect(self.draw_closest_with_team_vectors)
         elif self.example_idx == 2:
             self.timer.connect(self.draw_along_closets_segment)
-        self.timer.start(0.033) # 30 FPS
+        self.timer.start(0.5) # 30 FPS
         vispy.app.run()
 
 
