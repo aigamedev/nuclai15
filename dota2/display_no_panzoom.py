@@ -330,7 +330,7 @@ class Application(object):
             self.timer.connect(self.draw_closest_with_team_vectors)
         elif self.example_idx == 2:
             self.timer.connect(self.draw_along_closets_segment)
-        self.timer.start(0.5) # 30 FPS
+        self.timer.start(0.033) # 30 FPS
         vispy.app.run()
 
 
