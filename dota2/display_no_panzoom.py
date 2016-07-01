@@ -65,7 +65,6 @@ class Application(object):
         self.timer_toggle = True
         self.selected_path = []
         self.current_path_advanced_position = 0
-
         self.player_position = numpy.asarray([0,0])
         
         self.paths_data = paths_data.PathsData(os.path.join('csv', 'data.csv'), self.params)
@@ -177,30 +176,21 @@ class Application(object):
 
     def draw_current_path_advance(self, ev):
 
-        if len(self.selected_path) == 0 or self.mouse_moved:
+        selected_paths = self.paths_data.get_paths(self.paths_data.mouse_xy, self.player_position, self.current_path_advanced_position, self.selected_path)
+        if len(self.selected_path) == 0 or selected_paths[0][1] != self.selected_path[1] or selected_paths[0][2] != self.selected_path[2]:
+            # new path
             self.current_path_advanced_position = 0
-            selected_paths = self.paths_data.get_paths(self.paths_data.mouse_xy, self.player_position, self.current_path_advanced_position)
-            if len(selected_paths) > 0:
-                self.selected_path = selected_paths[:self.params.TOP_PATHS_NUMBER]
-                self.mouse_moved = False
-            else: return
-        else:
-            # advence the best path or get a new one
-            selected_paths = self.paths_data.get_paths(self.paths_data.mouse_xy, self.player_position, self.current_path_advanced_position, seed=[self.selected_path[0]])
-            if selected_paths[0][1] != self.selected_path[0][1] or selected_paths[0][2] != self.selected_path[0][2]:
-                # new path
-                self.current_path_advanced_position = 0
 
-            self.selected_path = selected_paths[:self.params.TOP_PATHS_NUMBER]
-        full_path_len = len(self.paths_data.segments[self.selected_path[0][2]][self.selected_path[0][1]])
+        self.selected_path = selected_paths[0]
+        full_path_len = len(self.paths_data.segments[selected_paths[0][2]][selected_paths[0][1]])
 
         for i in range(self.params.TOP_PATHS_NUMBER):
-            if i >= len(self.selected_path):
+            if i >= len(selected_paths):
                 # clear and skip
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
                 continue
 
-            current = self.paths_data.segments[self.selected_path[i][2]][self.selected_path[i][1]] # hero_id, segment_idx 
+            current = self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1]] # hero_id, segment_idx 
             draw_to = self.params.MOVE_ALONG_STEP_SIZE
 
             if i == 0:
@@ -208,7 +198,7 @@ class Application(object):
 
                 segments_jump = draw_to // self.params.SEGMENT_SIZE
                 for jump in range(segments_jump):
-                    current  = numpy.concatenate((current, self.paths_data.segments[self.selected_path[i][2]][self.selected_path[i][1] + jump + 1]))
+                    current  = numpy.concatenate((current, self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1] + jump + 1]))
 
                 if self.current_path_advanced_position != 0:
                     # update player position
@@ -218,12 +208,12 @@ class Application(object):
 
             current = current[0:draw_to]
             # append short history
-            if i == 0 and self.selected_path[i][1] > 0 and len(self.paths_data.segments[self.selected_path[i][2]][self.selected_path[i][1] - 1]) > 0:
-                current = numpy.concatenate((self.paths_data.segments[self.selected_path[i][2]][self.selected_path[i][1] - 1][-self.params.MOVE_ALONG_STEP_SIZE/3:], current))
+            if i == 0 and selected_paths[i][1] > 0 and len(self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1] - 1]) > 0:
+                current = numpy.concatenate((self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1] - 1][-self.params.MOVE_ALONG_STEP_SIZE/3:], current))
 
             self.lines[i].set_data(pos=current[:,[0,1]])
             self.lines[i].transform.reset()
-            self.lines[i].transform.translate((self.selected_path[i][3] * -1))
+            self.lines[i].transform.translate((selected_paths[i][3] * -1))
             self.lines[i].transform.translate(self.player_position)
             # to have [0,0] in the screen center
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
