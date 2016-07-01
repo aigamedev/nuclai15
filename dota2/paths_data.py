@@ -10,9 +10,11 @@ class PathsData(object):
         self.params = params
         self.data = {}
         self.user_team_lookup = {}
-        self.selected_path = []
         self.advancing =  advancing
-
+        # if advancing
+        self.selected_path = []
+        self.advanceIdx = 0
+        self.player_position = numpy.asarray([0,0])
 
         for idx, row in enumerate(numpy.genfromtxt(data_file, delimiter=',')):
             if idx == 0: continue
@@ -54,7 +56,7 @@ class PathsData(object):
                 refering_point = random_path[path_advance % self.params.SEGMENT_SIZE][0:2] # refering point is the player position in the tick
                 point_distance = math.hypot(random_path[investigated_point_idx][0] - refering_point[0] + player_point[0] - go_to[0],
                                             random_path[investigated_point_idx][1] - refering_point[1] + player_point[1] - go_to[1])
-                selected_paths.append([point_distance, path_idx, hero_id, refering_point])
+                selected_paths.append([point_distance, path_idx, hero_id, refering_point, random_path])
 
         for i in range(self.params.SAMPLE_SIZE):
             hero_id = random.choice(list(self.data.keys()))
@@ -62,6 +64,8 @@ class PathsData(object):
             random_path = self.segments[hero_id][path_idx]
             self.params.MOVE_ALONG_STEP_SIZE # we investigate the point where the drawn path ends
             append_path(random_path, path_idx, hero_id, self.params.MOVE_ALONG_STEP_SIZE, 0)
+
+        if  not self.advancing: return selected_paths # no memory - just return from here
 
         if self.advancing and len(self.selected_path):
             random_path = self.segments[self.selected_path[2]][self.selected_path[1]]
@@ -77,9 +81,13 @@ class PathsData(object):
                     random_path = []
             append_path(random_path, self.selected_path[1], self.selected_path[2], investigated_point_idx, current_path_advanced_position)
         selected_paths.sort(key=lambda x: x[0])
-        #if len(self.selected_path) == 0 or selected_paths[0][1] != self.selected_path[1] or selected_paths[0][2] != self.selected_path[2]:
-        #   update player position
-        #   update index
+        if len(self.selected_path) == 0 or selected_paths[0][1] != self.selected_path[1] or selected_paths[0][2] != self.selected_path[2]:
+            # new path
+            self.advanceIdx = 0
+        else:
+            # advance
+            self.advanceIdx += 1
+            self.player_position = self.player_position + self.selected_path[4][self.advanceIdx][0:2] - self.selected_path[4][self.advanceIdx-1][0:2]
         self.selected_path = selected_paths[0]
         return selected_paths
 

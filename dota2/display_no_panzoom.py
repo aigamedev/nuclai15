@@ -233,7 +233,7 @@ class Application(object):
             self.timer.connect(self.draw_closest_with_team_vectors)
         elif self.example_idx == 2:
             self.timer.connect(self.draw_current_path_advance)
-        self.timer.start(0.033) # 30 FPS
+        self.timer.start(0.25) # 30 FPS
         vispy.app.run()
 
 
