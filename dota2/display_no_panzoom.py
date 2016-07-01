@@ -46,10 +46,8 @@ class Application(object):
             arrow_size = SELECTED_ARROW_SIZE if i == 0 else ARROW_SIZE
             color = COLOR_SELECTED if i == 0 else COLOR_NEUTRAL
             vectors_line = []
-            # using fixed colors now
-            # color = numpy.random.rand(3) 
+            # color = numpy.random.rand(3) # using fixed colors now
             self.colors.append(color)
-
             line = vispy.scene.Line(parent=self.view.scene, color=color, connect='strip', method='agg', width=path_width)
             line.transform = vispy.visuals.transforms.MatrixTransform()
             self.lines.append(line)
@@ -64,7 +62,6 @@ class Application(object):
                 else: vectors_line.append([None, None])
             self.vectors.append(vectors_line)
 
-
         self.timer_toggle = True
         self.selected_path = []
         self.current_path_advanced_position = 0
@@ -74,7 +71,6 @@ class Application(object):
         self.paths_data = paths_data.PathsData(os.path.join('csv', 'data.csv'), self.params)
         # init the searched point with some random value - after first mouse move it's a
         self.paths_data.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * self.params.SCALE_FACTOR
-
 
         self.grid = vispy.scene.visuals.GridLines(parent=self.view.scene, color=(1, 1, 1, 1))
         self.grid.transform = vispy.visuals.transforms.MatrixTransform()
