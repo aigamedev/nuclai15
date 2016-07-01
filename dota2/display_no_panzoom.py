@@ -66,8 +66,7 @@ class Application(object):
         self.selected_path = []
         self.current_path_advanced_position = 0
         self.player_position = numpy.asarray([0,0])
-        
-        self.paths_data = paths_data.PathsData(os.path.join('csv', 'data.csv'), self.params)
+        self.paths_data = paths_data.PathsData(os.path.join('csv', 'data.csv'), self.params, advancing=(example_idx == 2))
         # init the searched point with some random value - after first mouse move it's a
         self.paths_data.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * self.params.SCALE_FACTOR
 
@@ -176,7 +175,7 @@ class Application(object):
 
     def draw_current_path_advance(self, ev):
 
-        selected_paths = self.paths_data.get_paths(self.paths_data.mouse_xy, self.player_position, self.current_path_advanced_position, self.selected_path)
+        selected_paths = self.paths_data.get_paths(self.player_position, self.current_path_advanced_position)
         if len(self.selected_path) == 0 or selected_paths[0][1] != self.selected_path[1] or selected_paths[0][2] != self.selected_path[2]:
             # new path
             self.current_path_advanced_position = 0

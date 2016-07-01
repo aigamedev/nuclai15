@@ -5,11 +5,14 @@ import random
 
 class PathsData(object):
 
-    def __init__(self, data_file, params):
+    def __init__(self, data_file, params, advancing = False):
 
         self.params = params
         self.data = {}
         self.user_team_lookup = {}
+        self.selected_path = []
+        self.advancing =  advancing
+
 
         for idx, row in enumerate(numpy.genfromtxt(data_file, delimiter=',')):
             if idx == 0: continue
@@ -40,9 +43,9 @@ class PathsData(object):
                         continue
 
 
-    def get_paths(self, go_to = [], player_position = numpy.asarray([0,0]), current_path_advanced_position = 0, seed = []):
+    def get_paths(self, player_position = numpy.asarray([0,0]), current_path_advanced_position = 0):
 
-        if len(go_to) == 0: go_to = self.mouse_xy
+        go_to = self.mouse_xy
         selected_paths = []
         player_point = player_position * self.params.SCALE_FACTOR
 
@@ -60,20 +63,35 @@ class PathsData(object):
             self.params.MOVE_ALONG_STEP_SIZE # we investigate the point where the drawn path ends
             append_path(random_path, path_idx, hero_id, self.params.MOVE_ALONG_STEP_SIZE, 0)
 
-        if len(seed):
-            random_path = self.segments[seed[2]][seed[1]]
+        if self.advancing and len(self.selected_path):
+            random_path = self.segments[self.selected_path[2]][self.selected_path[1]]
             investigated_point_idx = self.params.MOVE_ALONG_STEP_SIZE + current_path_advanced_position
             if investigated_point_idx >= len(random_path):
                 # get into next segment
                 # check which one and if it exists
                 segments_jump = (self.params.MOVE_ALONG_STEP_SIZE + current_path_advanced_position) // self.params.SEGMENT_SIZE
-                if seed[1] < len(self.segments[seed[2]]) and len(self.segments[seed[2]][seed[1] + segments_jump]):
-                    random_path = self.segments[seed[2]][seed[1] + segments_jump]
+                if self.selected_path[1] < len(self.segments[self.selected_path[2]]) and len(self.segments[self.selected_path[2]][self.selected_path[1] + segments_jump]):
+                    random_path = self.segments[self.selected_path[2]][self.selected_path[1] + segments_jump]
                     investigated_point_idx = investigated_point_idx % self.params.SEGMENT_SIZE
                 else:
                     random_path = []
-            append_path(random_path, seed[1], seed[2], investigated_point_idx, current_path_advanced_position)
+            append_path(random_path, self.selected_path[1], self.selected_path[2], investigated_point_idx, current_path_advanced_position)
         selected_paths.sort(key=lambda x: x[0])
-        if len(self.selected_path) == 0 or selected_paths[0][1] != self.selected_path[1] or selected_paths[0][2] != self.selected_path[2]:
+        #if len(self.selected_path) == 0 or selected_paths[0][1] != self.selected_path[1] or selected_paths[0][2] != self.selected_path[2]:
+        #   update player position
+        #   update index
+        self.selected_path = selected_paths[0]
         return selected_paths
+
+
+
+
+
+
+
+
+
+
+
+
 
