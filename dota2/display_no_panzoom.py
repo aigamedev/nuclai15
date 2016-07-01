@@ -67,46 +67,14 @@ class Application(object):
 
         self.timer_toggle = True
         self.selected_path = []
-        self.mouse_moved = True
         self.current_path_advanced_position = 0
 
-        # init the searched point with some random value - after first mouse move it's a
-        self.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * self.params.SCALE_FACTOR
         self.player_position = numpy.asarray([0,0])
         
         self.paths_data = paths_data.PathsData(os.path.join('csv', 'data.csv'), self.params)
+        # init the searched point with some random value - after first mouse move it's a
+        self.paths_data.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * self.params.SCALE_FACTOR
 
-        # read data
-        self.data = {}
-        self.user_team_lookup = {}
-
-        for idx, row in enumerate(numpy.genfromtxt(os.path.join('csv', 'data.csv'), delimiter=',')):
-            if idx == 0: continue
-            hero_id = int(row[1])
-            coordinates = numpy.array(row[2:4])
-            coordinates *= self.params.SCALE_FACTOR
-            if hero_id in self.data: self.data[hero_id].append(numpy.array(coordinates))
-            else: self.data[hero_id] = [coordinates]
-            # players 0 - 4 belong to the first team 5 - 9 to the seond one - it comes from a replay data format
-            if not hero_id in self.user_team_lookup: self.user_team_lookup[hero_id] = 1 if len(self.user_team_lookup.keys()) <= 4 else 2 
-
-        # append offset
-        for hero_id in self.data.keys():
-            for idx_point, point in enumerate(self.data[hero_id]):
-                if idx_point == 0: offset = [0,0]
-                else: offset = [point[0] - self.data[hero_id][idx_point-1][0], point[1] - self.data[hero_id][idx_point-1][1]]
-                self.data[hero_id][idx_point] = numpy.append(point, numpy.array(offset))
-
-        # prepare smaller segments
-        self.segments = {}
-        for hero_id in self.data.keys():
-            self.segments[hero_id] = numpy.array_split( self.data[hero_id], math.ceil(len(self.data[hero_id]) / float(self.params.SEGMENT_SIZE)) )
-            for idx, segment in enumerate(self.segments[hero_id]):
-                for idx_point, point in enumerate(segment): 
-                    if idx_point == 0: continue
-                    if math.hypot(point[2], point[3]) > self.params.TELEPORT_THRESHOLD:
-                        self.segments[hero_id][idx] = [] # skip teleports 
-                        continue
 
         self.grid = vispy.scene.visuals.GridLines(parent=self.view.scene, color=(1, 1, 1, 1))
         self.grid.transform = vispy.visuals.transforms.MatrixTransform()
@@ -131,15 +99,14 @@ class Application(object):
 
         @self.canvas.events.mouse_move.connect
         def on_mouse_move(event):
-            self.mouse_xy = (numpy.asarray(self.view.camera.transform.imap(event.pos)) - numpy.asarray(self.canvas.size) / 2) * self.params.SCALE_FACTOR
-            self.mouse_moved = True
+            self.paths_data.mouse_xy = (numpy.asarray(self.view.camera.transform.imap(event.pos)) - numpy.asarray(self.canvas.size) / 2) * self.params.SCALE_FACTOR
 
         @self.canvas.events.draw.connect
         def on_draw(event):
             pass
 
     def draw_vector(self, ev):
-        selected_paths = self.paths_data.get_paths(self.mouse_xy)
+        selected_paths = self.paths_data.get_paths()
         for i in range(self.params.TOP_PATHS_NUMBER):
             if i >= len(selected_paths):
                 # clear and skip
@@ -148,7 +115,7 @@ class Application(object):
                     if self.params.VECTOR_POINT and p_i != self.params.VECTOR_POINT: continue
                     self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
-            selected_path = self.segments[selected_paths[i][2]][selected_paths[i][1]]
+            selected_path = self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1]]
             self.lines[i].set_data(pos=selected_path[:,[0,1]])
             self.lines[i].transform.reset()
             self.lines[i].transform.translate((selected_path[0][0:2] * -1))
@@ -171,7 +138,7 @@ class Application(object):
 
 
     def draw_closest_with_team_vectors(self, ev):
-        selected_paths = self.paths_data.get_paths(self.mouse_xy)
+        selected_paths = self.paths_data.get_paths()
         for i in range(self.params.TOP_PATHS_NUMBER):
             if i >= len(selected_paths):
                 # clear and skip
@@ -182,7 +149,7 @@ class Application(object):
                     self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
                     self.vectors[i][p_i][1].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
-            selected_path = self.segments[selected_paths[i][2]][selected_paths[i][1]]
+            selected_path = self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1]]
             self.lines[i].set_data(pos=selected_path[:,[0,1]])
             self.lines[i].transform.reset()
             self.lines[i].transform.translate((selected_path[0][0:2] * -1))
@@ -193,12 +160,12 @@ class Application(object):
                 nearest_frined = []
                 nearest_enemy = []
                 # get the nearest friend / enemy to 
-                for hero_id in self.data.keys():
+                for hero_id in self.paths_data.data.keys():
                     if hero_id != selected_paths[i][2]: # it's not the own player
-                        if hero_id in self.segments and len(self.segments[hero_id]) > selected_paths[i][1] and len(self.segments[hero_id][selected_paths[i][1]]) > 0:
-                            hero_point = self.segments[hero_id][selected_paths[i][1]][p_i]
+                        if hero_id in self.paths_data.segments and len(self.paths_data.segments[hero_id]) > selected_paths[i][1] and len(self.paths_data.segments[hero_id][selected_paths[i][1]]) > 0:
+                            hero_point = self.paths_data.segments[hero_id][selected_paths[i][1]][p_i]
                             distance = math.hypot(hero_point[0] - point[0], hero_point[1] - point[1])
-                            if self.user_team_lookup[hero_id] == self.user_team_lookup[selected_paths[i][2]]: # friend
+                            if self.paths_data.user_team_lookup[hero_id] == self.paths_data.user_team_lookup[selected_paths[i][2]]: # friend
                                 if len(nearest_frined) == 0 or nearest_frined[1] > distance: nearest_frined = (hero_id, distance, hero_point[0:2])
                             else: # enemy
                                 if len(nearest_enemy) == 0 or nearest_enemy[1] > distance: nearest_enemy = (hero_id, distance, hero_point[0:2])
@@ -216,20 +183,20 @@ class Application(object):
 
         if len(self.selected_path) == 0 or self.mouse_moved:
             self.current_path_advanced_position = 0
-            selected_paths = self.paths_data.get_paths(self.mouse_xy, self.player_position, self.current_path_advanced_position)
+            selected_paths = self.paths_data.get_paths(self.paths_data.mouse_xy, self.player_position, self.current_path_advanced_position)
             if len(selected_paths) > 0:
                 self.selected_path = selected_paths[:self.params.TOP_PATHS_NUMBER]
                 self.mouse_moved = False
             else: return
         else:
             # advence the best path or get a new one
-            selected_paths = self.paths_data.get_paths(self.mouse_xy, self.player_position, self.current_path_advanced_position, seed=[self.selected_path[0]])
+            selected_paths = self.paths_data.get_paths(self.paths_data.mouse_xy, self.player_position, self.current_path_advanced_position, seed=[self.selected_path[0]])
             if selected_paths[0][1] != self.selected_path[0][1] or selected_paths[0][2] != self.selected_path[0][2]:
                 # new path
                 self.current_path_advanced_position = 0
 
             self.selected_path = selected_paths[:self.params.TOP_PATHS_NUMBER]
-        full_path_len = len(self.segments[self.selected_path[0][2]][self.selected_path[0][1]])
+        full_path_len = len(self.paths_data.segments[self.selected_path[0][2]][self.selected_path[0][1]])
 
         for i in range(self.params.TOP_PATHS_NUMBER):
             if i >= len(self.selected_path):
@@ -237,7 +204,7 @@ class Application(object):
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
                 continue
 
-            current = self.segments[self.selected_path[i][2]][self.selected_path[i][1]] # hero_id, segment_idx 
+            current = self.paths_data.segments[self.selected_path[i][2]][self.selected_path[i][1]] # hero_id, segment_idx 
             draw_to = self.params.MOVE_ALONG_STEP_SIZE
 
             if i == 0:
@@ -245,7 +212,7 @@ class Application(object):
 
                 segments_jump = draw_to // self.params.SEGMENT_SIZE
                 for jump in range(segments_jump):
-                    current  = numpy.concatenate((current, self.segments[self.selected_path[i][2]][self.selected_path[i][1] + jump + 1]))
+                    current  = numpy.concatenate((current, self.paths_data.segments[self.selected_path[i][2]][self.selected_path[i][1] + jump + 1]))
 
                 if self.current_path_advanced_position != 0:
                     # update player position
@@ -255,8 +222,8 @@ class Application(object):
 
             current = current[0:draw_to]
             # append short history
-            if i == 0 and self.selected_path[i][1] > 0 and len(self.segments[self.selected_path[i][2]][self.selected_path[i][1] - 1]) > 0:
-                current = numpy.concatenate((self.segments[self.selected_path[i][2]][self.selected_path[i][1] - 1][-self.params.MOVE_ALONG_STEP_SIZE/3:], current))
+            if i == 0 and self.selected_path[i][1] > 0 and len(self.paths_data.segments[self.selected_path[i][2]][self.selected_path[i][1] - 1]) > 0:
+                current = numpy.concatenate((self.paths_data.segments[self.selected_path[i][2]][self.selected_path[i][1] - 1][-self.params.MOVE_ALONG_STEP_SIZE/3:], current))
 
             self.lines[i].set_data(pos=current[:,[0,1]])
             self.lines[i].transform.reset()

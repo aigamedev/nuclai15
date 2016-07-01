@@ -40,7 +40,9 @@ class PathsData(object):
                         continue
 
 
-    def get_paths(self, go_to, player_position = numpy.asarray([0,0]), current_path_advanced_position = 0, seed = []):
+    def get_paths(self, go_to = [], player_position = numpy.asarray([0,0]), current_path_advanced_position = 0, seed = []):
+
+        if len(go_to) == 0: go_to = self.mouse_xy
 
         selected_paths = []
         player_point = player_position * self.params.SCALE_FACTOR
