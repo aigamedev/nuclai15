@@ -13,7 +13,7 @@ class PathsData(object):
         self.advancing =  advancing
         # if advancing
         self.selected_path = []
-        self.advanceIdx = 0
+        self.advance_point = 0
         self.player_position = numpy.asarray([0,0])
 
         for idx, row in enumerate(numpy.genfromtxt(data_file, delimiter=',')):
@@ -45,11 +45,11 @@ class PathsData(object):
                         continue
 
 
-    def get_paths(self, player_position = numpy.asarray([0,0]), current_path_advanced_position = 0):
+    def get_paths(self):
 
         go_to = self.mouse_xy
         selected_paths = []
-        player_point = player_position * self.params.SCALE_FACTOR
+        player_point = self.player_position * self.params.SCALE_FACTOR
 
         def append_path(rendom_path, path_idx, hero_id, investigated_point_idx, path_advance):
             if len(random_path) and random_path[0][0] != random_path[-1][0] and random_path[0][1] != random_path[-1][1]:
@@ -65,29 +65,33 @@ class PathsData(object):
             self.params.MOVE_ALONG_STEP_SIZE # we investigate the point where the drawn path ends
             append_path(random_path, path_idx, hero_id, self.params.MOVE_ALONG_STEP_SIZE, 0)
 
-        if  not self.advancing: return selected_paths # no memory - just return from here
+        if  not self.advancing:
+            selected_paths.sort(key=lambda x: x[0]) # no memory - just return from here
+            return selected_paths
+
+        ## the code below is executed only if player advances the path
 
         if self.advancing and len(self.selected_path):
             random_path = self.segments[self.selected_path[2]][self.selected_path[1]]
-            investigated_point_idx = self.params.MOVE_ALONG_STEP_SIZE + current_path_advanced_position
+            investigated_point_idx = self.params.MOVE_ALONG_STEP_SIZE + self.advance_point
             if investigated_point_idx >= len(random_path):
                 # get into next segment
                 # check which one and if it exists
-                segments_jump = (self.params.MOVE_ALONG_STEP_SIZE + current_path_advanced_position) // self.params.SEGMENT_SIZE
+                segments_jump = (self.params.MOVE_ALONG_STEP_SIZE + self.advance_point) // self.params.SEGMENT_SIZE
                 if self.selected_path[1] < len(self.segments[self.selected_path[2]]) and len(self.segments[self.selected_path[2]][self.selected_path[1] + segments_jump]):
                     random_path = self.segments[self.selected_path[2]][self.selected_path[1] + segments_jump]
                     investigated_point_idx = investigated_point_idx % self.params.SEGMENT_SIZE
                 else:
                     random_path = []
-            append_path(random_path, self.selected_path[1], self.selected_path[2], investigated_point_idx, current_path_advanced_position)
+            append_path(random_path, self.selected_path[1], self.selected_path[2], investigated_point_idx, self.advance_point)
         selected_paths.sort(key=lambda x: x[0])
         if len(self.selected_path) == 0 or selected_paths[0][1] != self.selected_path[1] or selected_paths[0][2] != self.selected_path[2]:
             # new path
-            self.advanceIdx = 0
+            self.advance_point = 0
         else:
             # advance
-            self.advanceIdx += 1
-            self.player_position = self.player_position + self.selected_path[4][self.advanceIdx][0:2] - self.selected_path[4][self.advanceIdx-1][0:2]
+            self.advance_point += 1
+            self.player_position = self.player_position + self.selected_path[4][self.advance_point][0:2] - self.selected_path[4][self.advance_point-1][0:2]
         self.selected_path = selected_paths[0]
         return selected_paths
 

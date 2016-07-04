@@ -63,8 +63,6 @@ class Application(object):
             self.vectors.append(vectors_line)
 
         self.timer_toggle = True
-        self.selected_path = []
-        self.current_path_advanced_position = 0
         self.player_position = numpy.asarray([0,0])
         self.paths_data = paths_data.PathsData(os.path.join('csv', 'data.csv'), self.params, advancing=(example_idx == 2))
         # init the searched point with some random value - after first mouse move it's a
@@ -85,19 +83,23 @@ class Application(object):
                 else: self.timer.start()
                 self.timer_toggle = not self.timer_toggle
 
+
         @self.canvas.events.resize.connect
         def on_resize(event):
             self.grid.transform.reset()
             self.grid.transform.translate(numpy.asarray(self.canvas.size) / 2)
             # @TODO: translate paths and vectors
 
+
         @self.canvas.events.mouse_move.connect
         def on_mouse_move(event):
             self.paths_data.mouse_xy = (numpy.asarray(self.view.camera.transform.imap(event.pos)) - numpy.asarray(self.canvas.size) / 2) * self.params.SCALE_FACTOR
 
+
         @self.canvas.events.draw.connect
         def on_draw(event):
             pass
+
 
     def draw_vector(self, ev):
         selected_paths = self.paths_data.get_paths()
@@ -109,7 +111,7 @@ class Application(object):
                     if self.params.VECTOR_POINT and p_i != self.params.VECTOR_POINT: continue
                     self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
-            selected_path = self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1]]
+            selected_path = selected_paths[i][4]
             self.lines[i].set_data(pos=selected_path[:,[0,1]])
             self.lines[i].transform.reset()
             self.lines[i].transform.translate((selected_path[0][0:2] * -1))
@@ -175,13 +177,7 @@ class Application(object):
 
     def draw_current_path_advance(self, ev):
 
-        selected_paths = self.paths_data.get_paths(self.player_position, self.current_path_advanced_position)
-        if len(self.selected_path) == 0 or selected_paths[0][1] != self.selected_path[1] or selected_paths[0][2] != self.selected_path[2]:
-            # new path
-            self.current_path_advanced_position = 0
-
-        self.selected_path = selected_paths[0]
-        full_path_len = len(self.paths_data.segments[selected_paths[0][2]][selected_paths[0][1]])
+        selected_paths = self.paths_data.get_paths()
 
         for i in range(self.params.TOP_PATHS_NUMBER):
             if i >= len(selected_paths):
@@ -189,41 +185,34 @@ class Application(object):
                 self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
                 continue
 
-            current = self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1]] # hero_id, segment_idx 
+            current = selected_paths[i][4]
             draw_to = self.params.MOVE_ALONG_STEP_SIZE
 
             if i == 0:
-                draw_to += self.current_path_advanced_position
-
-                segments_jump = draw_to // self.params.SEGMENT_SIZE
-                for jump in range(segments_jump):
-                    current  = numpy.concatenate((current, self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1] + jump + 1]))
-
-                if self.current_path_advanced_position != 0:
-                    # update player position
-                    self.player_position = self.player_position + current[self.current_path_advanced_position][0:2] - current[self.current_path_advanced_position-1][0:2]
-
-                marker_point = current[self.current_path_advanced_position][0:2]
+                draw_to += self.paths_data.advance_point
+                #marker_point = current[self.paths_data.advance_point][0:2]
+                marker_point = selected_paths[i][3]
+                # append short history
+                if selected_paths[i][1] > 0 and len(self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1] - 1]) > 0:
+                    current = numpy.concatenate((self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1] - 1][-self.params.MOVE_ALONG_STEP_SIZE/3:], current))
 
             current = current[0:draw_to]
-            # append short history
-            if i == 0 and selected_paths[i][1] > 0 and len(self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1] - 1]) > 0:
-                current = numpy.concatenate((self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1] - 1][-self.params.MOVE_ALONG_STEP_SIZE/3:], current))
 
             self.lines[i].set_data(pos=current[:,[0,1]])
             self.lines[i].transform.reset()
             self.lines[i].transform.translate((selected_paths[i][3] * -1))
-            self.lines[i].transform.translate(self.player_position)
+            self.lines[i].transform.translate(self.paths_data.player_position)
             # to have [0,0] in the screen center
             self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
             if i == 0:
                 self.marker.set_data(pos=numpy.asarray([marker_point]), face_color=self.colors[i], size=15)
                 self.marker.transform = self.lines[i].transform
-        self.current_path_advanced_position += 1
+
 
     def process(self, _):
         return
+
 
     def run(self):
         self.timer = vispy.app.Timer(interval=1.0 / 30.0)
@@ -233,7 +222,7 @@ class Application(object):
             self.timer.connect(self.draw_closest_with_team_vectors)
         elif self.example_idx == 2:
             self.timer.connect(self.draw_current_path_advance)
-        self.timer.start(0.25) # 30 FPS
+        self.timer.start(0.033) # 30 FPS
         vispy.app.run()
 
 
