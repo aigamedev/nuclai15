@@ -63,7 +63,6 @@ class PathsData(object):
             hero_id = random.choice(list(self.data.keys()))
             path_idx = numpy.random.random_integers(0, (len(self.segments[hero_id])-1))
             random_path = self.segments[hero_id][path_idx]
-            self.params.MOVE_ALONG_STEP_SIZE # we investigate the point where the drawn path ends
             append_path(random_path, path_idx, hero_id, self.params.MOVE_ALONG_STEP_SIZE, 0)
 
         if  not self.advancing:
@@ -90,6 +89,10 @@ class PathsData(object):
         if len(self.selected_path) == 0 or selected_paths[0][1] != self.selected_path[1] or selected_paths[0][2] != self.selected_path[2]:
             # new path - reset
             self.advance_point = 0
+            if len(self.selected_path) > 0:
+                for p_idx, p in enumerate(selected_paths):
+                    if p[1] == self.selected_path[1] and p[2] == self.selected_path[2]:
+                        selected_paths.pop(p_idx)
         else:
             # advance
             if self.follow_player:
