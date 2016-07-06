@@ -88,7 +88,7 @@ class PathsData(object):
             append_path(random_path, self.selected_path[1], self.selected_path[2], investigated_point_idx, self.advance_point)
         selected_paths.sort(key=lambda x: x[0])
         if len(self.selected_path) == 0 or selected_paths[0][1] != self.selected_path[1] or selected_paths[0][2] != self.selected_path[2]:
-            # new path
+            # new path - reset
             self.advance_point = 0
         else:
             # advance
