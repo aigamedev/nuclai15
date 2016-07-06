@@ -5,17 +5,26 @@ import bootstrap     # Demonstration specific setup.
 import vispy.scene              # Canvas & visuals for rendering.
 import numpy
 
-import random
 import collections
 import math
 
-from vispy.geometry import curves
+import paths_data
+import params
+
+# style
+SELECTED_PATH_WIDTH = 5
+PATH_WIDTH = 1
+SELECTED_ARROW_SIZE = 20.0
+ARROW_SIZE = 14.0
+
+# colors
+COLOR_NEUTRAL = numpy.asarray([0.5,0.5,0.5])
+COLOR_SELECTED = numpy.asarray([0.8,0.2,0.8])
 
 class Application(object):
 
-    recipe = []
 
-    def __init__(self, title='dota2'): #, range=(0,850)):
+    def __init__(self, example_idx, title='nucl.ai16'): #, range=(0,850)):
         self.canvas = vispy.scene.SceneCanvas(
                                 title=title,
                                 size=(1280, 720),
@@ -23,171 +32,207 @@ class Application(object):
                                 show=False,
                                 keys='interactive')
 
+        self.example_idx = example_idx
+        self.params = params.Params()
         self.widget = self.canvas.central_widget
         self.view = self.canvas.central_widget.add_view()
+        self.marker = vispy.scene.Markers(pos=numpy.asarray([[0,0]]), face_color='red', size=0, parent=self.view.scene)
+        # prepare display
         self.lines = []
         self.vectors = []
+        self.colors = []
+        for i in range(self.params.TOP_PATHS_NUMBER):
+            path_width = SELECTED_PATH_WIDTH if i == 0 else PATH_WIDTH
+            arrow_size = SELECTED_ARROW_SIZE if i == 0 else ARROW_SIZE
+            color = COLOR_SELECTED if i == 0 else COLOR_NEUTRAL
+            vectors_line = []
+            # color = numpy.random.rand(3) # using fixed colors now
+            self.colors.append(color)
+            line = vispy.scene.Line(parent=self.view.scene, color=color, connect='strip', method='agg', width=path_width)
+            line.transform = vispy.visuals.transforms.MatrixTransform()
+            self.lines.append(line)
+            for j in range(self.params.SEGMENT_SIZE):
+                if not self.params.VECTOR_POINT or self.params.VECTOR_POINT == j:
+                    arr1 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, method='agg', arrow_size=arrow_size, width=path_width)
+                    arr1.transform = vispy.visuals.transforms.MatrixTransform()
+                    arr2 = vispy.scene.Arrow(numpy.asarray([[0,0],[0,0]]), parent=self.view.scene, color=color, method='agg', arrow_size=arrow_size, width=path_width)
+                    arr2.transform = arr1.transform
+                    self.marker.transform = arr1.transform
+                    vectors_line.append([arr1, arr2])
+                else: vectors_line.append([None, None])
+            self.vectors.append(vectors_line)
+
         self.timer_toggle = True
-        self.mouse_xy = numpy.random.rand(2) * 10 - 5 
-
-        # read data
-        self.data = {}
-        self.user_team_lookup = {}
-        for idx, row in enumerate(numpy.genfromtxt(os.path.join('csv', 'data.csv'), delimiter=',')):
-            if idx == 0: continue
-            hero_id = int(row[1])
-            #coordinates = numpy.array([row[2], row[3]])
-            coordinates = numpy.array(row)
-            if hero_id in self.data: self.data[hero_id].append(numpy.array(coordinates))
-            else: self.data[hero_id] = [coordinates]
-            if not hero_id in self.user_team_lookup: self.user_team_lookup[hero_id] = row[9]
-
-        # Set 2D camera (the camera will scale to the contents in the scene)
-        self.view.camera = vispy.scene.PanZoomCamera(aspect=1)
-        # flip y-axis to have correct aligment
-        #self.view.camera.flip = (0, 1, 0)
-        #self.view.camera.set_range(range)
+        self.player_position = numpy.asarray([0,0])
+        self.paths_data = paths_data.PathsData(os.path.join('csv', 'data.csv'), self.params, follow_player=(example_idx == 3), advancing=(example_idx == 3 or example_idx == 2))
+        # init the searched point with some random value - after first mouse move it's a
+        self.paths_data.mouse_xy = ( ( numpy.random.rand(2) * 10 - 5 ) - numpy.asarray(self.canvas.size) / 2 ) * self.params.SCALE_FACTOR
 
         self.grid = vispy.scene.visuals.GridLines(parent=self.view.scene, color=(1, 1, 1, 1))
+        self.grid.transform = vispy.visuals.transforms.MatrixTransform()
+        self.grid.transform.translate(numpy.asarray(self.canvas.size) / 2)
         self.canvas.show(visible=True)
         # HACK: Bug in VisPy 0.5.0-dev requires a click for layout to occur.
         self.canvas.events.mouse_press()
 
-        #self.draw_path(None)
-        self.arrows = []
-        # Implement key presses
+
         @self.canvas.events.key_press.connect
         def on_key_press(event):
-            if self.timer_toggle: self.timer.stop()
-            else: self.timer.start()
-            self.timer_toggle = not self.timer_toggle
+            if event.key.name == ' ':
+                if self.timer_toggle: self.timer.stop()
+                else: self.timer.start()
+                self.timer_toggle = not self.timer_toggle
+
+
+        @self.canvas.events.resize.connect
+        def on_resize(event):
+            self.grid.transform.reset()
+            self.grid.transform.translate(numpy.asarray(self.canvas.size) / 2)
+            # @TODO: translate paths and vectors
 
 
         @self.canvas.events.mouse_move.connect
         def on_mouse_move(event):
-            self.mouse_xy = self.view.camera.transform.imap(event.pos)
+            self.paths_data.mouse_xy = (numpy.asarray(self.view.camera.transform.imap(event.pos)) - numpy.asarray(self.canvas.size) / 2) * self.params.SCALE_FACTOR
+
 
         @self.canvas.events.draw.connect
         def on_draw(event):
             pass
 
-    def add_vectors(self, is_init, selected_path, color, selected_idx, data_idx):
 
-        points_vectors = []
-        for p_i, point in enumerate(selected_path):
+    def draw_vector(self, ev):
+        selected_paths = self.paths_data.get_paths()
+        for i in range(self.params.TOP_PATHS_NUMBER):
+            if i >= len(selected_paths):
+                # clear and skip
+                self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
+                for p_i, point in enumerate(selected_path):
+                    if self.params.VECTOR_POINT and p_i != self.params.VECTOR_POINT: continue
+                    self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
-            vector_distance, translate, angle = self.vector_from_offset(selected_path, point, p_i)
-            t = vispy.visuals.transforms.MatrixTransform()
-            t.rotate(angle,[0,0,1])
-            t.translate(translate)
+            selected_path = selected_paths[i][4]
+            self.lines[i].set_data(pos=selected_path[:,[0,1]])
+            self.lines[i].transform.reset()
+            self.lines[i].transform.translate((selected_path[0][0:2] * -1))
+            self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
-            v = numpy.array(([0,0],[vector_distance,0]))
-            a_l = numpy.array(([vector_distance,0],[vector_distance - 0.0025, 0.0025]))
-            a_r = numpy.array(([vector_distance,0],[vector_distance - 0.0025, -0.0025]))
+            for p_i, point in enumerate(selected_path):
+                if self.params.VECTOR_POINT and p_i != self.params.VECTOR_POINT: continue
 
-            if is_init:
+                # draw the angle
+                angle = (selected_paths[i][1] * self.params.SEGMENT_SIZE + p_i) % 361 # the index in data vector
+                v_x = math.cos(angle) * math.hypot(selected_path[p_i][2], selected_path[p_i][3])
+                v_y = math.sin(angle) * math.hypot(selected_path[p_i][2], selected_path[p_i][3])
+                vector = numpy.asarray([[0,0], [v_x, v_y]])
 
-                vector = vispy.scene.Line(v, color=color, parent=self.view.scene)
-                vector_arrowhead_l = vispy.scene.Line(a_l, color=color, parent=self.view.scene)
-                vector_arrowhead_r = vispy.scene.Line(a_r, color=color, parent=self.view.scene)
-
-                points_vectors.append({
-                    'v': vector,
-                    'a_l': vector_arrowhead_l,
-                    'a_r': vector_arrowhead_r
-                })
-
-            else:
-
-                self.vectors[selected_idx][p_i]['v'].set_data(v)
-                self.vectors[selected_idx][p_i]['a_l'].set_data(a_l)
-                self.vectors[selected_idx][p_i]['a_r'].set_data(a_r)
-                points_vectors = self.vectors[selected_idx]
-
-            points_vectors[p_i]['v'].transform = t
-            points_vectors[p_i]['a_l'].transform = t;
-            points_vectors[p_i]['a_r'].transform = t;
-
-        if is_init: self.vectors.append(points_vectors)
+                self.vectors[i][p_i][0].set_data(pos=vector, arrows=vector.reshape(1,4))
+                self.vectors[i][p_i][0].transform.reset()
+                self.vectors[i][p_i][0].transform.translate((selected_path[p_i][0:2]))
+                self.vectors[i][p_i][0].transform.translate((selected_path[0][0:2] * -1))
+                self.vectors[i][p_i][0].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
 
-    def draw_path(self, ev):
+    def draw_closest_with_team_vectors(self, ev):
+        selected_paths = self.paths_data.get_paths()
+        for i in range(self.params.TOP_PATHS_NUMBER):
+            if i >= len(selected_paths):
+                # clear and skip
+                self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
 
-        LINE_SIZE = 5
-        MARGIN = 2
-        TOP_PATHS_NUMBER = 5
-        SAMPLE_SIZE = 100
+                for p_i, point in enumerate(selected_path):
+                    if self.params.VECTOR_POINT and p_i != self.params.VECTOR_POINT: continue
+                    self.vectors[i][p_i][0].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
+                    self.vectors[i][p_i][1].set_data(pos=numpy.asarray([[0,0],[0,0]]), arrows=None)
 
-        is_init = len(self.lines) == 0
-        paths = []
-        selected_paths = []
+            selected_path = self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1]]
+            self.lines[i].set_data(pos=selected_path[:,[0,1]])
+            self.lines[i].transform.reset()
+            self.lines[i].transform.translate((selected_path[0][0:2] * -1))
+            self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
 
-        for i in range(SAMPLE_SIZE):
-            hero_id = random.choice(self.data.keys())
-            # paths can contain each other
-            # path_end = numpy.random.random_integers(LINE_SIZE, len(self.data[hero_id]))
-            # paths can NOT contain each other
-            path_end = numpy.random.random_integers(1, len(self.data[hero_id]) / LINE_SIZE) * LINE_SIZE
-            p = numpy.asarray(self.data[hero_id][path_end - LINE_SIZE:path_end])
-            selected_paths.append(([math.hypot(p[LINE_SIZE-1][2] - p[0][2] - self.mouse_xy[0], p[LINE_SIZE-1][3] - p[0][3] - self.mouse_xy[1])], p, path_end - LINE_SIZE))
-        
-        selected_paths.sort(key=lambda x: x[0])
+            for p_i, point in enumerate(selected_path):
+                if self.params.VECTOR_POINT and p_i != self.params.VECTOR_POINT: continue
+                nearest_frined = []
+                nearest_enemy = []
+                # get the nearest friend / enemy to 
+                for hero_id in self.paths_data.data.keys():
+                    if hero_id != selected_paths[i][2]: # it's not the own player
+                        if hero_id in self.paths_data.segments and len(self.paths_data.segments[hero_id]) > selected_paths[i][1] and len(self.paths_data.segments[hero_id][selected_paths[i][1]]) > 0:
+                            hero_point = self.paths_data.segments[hero_id][selected_paths[i][1]][p_i]
+                            distance = math.hypot(hero_point[0] - point[0], hero_point[1] - point[1])
+                            if self.paths_data.user_team_lookup[hero_id] == self.paths_data.user_team_lookup[selected_paths[i][2]]: # friend
+                                if len(nearest_frined) == 0 or nearest_frined[1] > distance: nearest_frined = (hero_id, distance, hero_point[0:2])
+                            else: # enemy
+                                if len(nearest_enemy) == 0 or nearest_enemy[1] > distance: nearest_enemy = (hero_id, distance, hero_point[0:2])
 
-        for i in range(TOP_PATHS_NUMBER):
-
-            color = numpy.random.rand(3)
-            selected_path = selected_paths[i][1]
-
-            for e_idx, _ in enumerate(selected_path):
-                if e_idx != 0: 
-                    selected_path[e_idx][2] -= selected_path[0][2]
-                    selected_path[e_idx][3] -= selected_path[0][3]
-            selected_path[0][2] -= selected_path[0][2]
-            selected_path[0][3] -= selected_path[0][3]
-
-            paths = selected_path if i == 0 else numpy.concatenate((paths, selected_path))
-
-            if is_init:
-
-                plot = vispy.scene.Line(pos=selected_path[:,[2,3]], parent=self.view.scene, color=color, antialias=True, method='gl')
-                self.lines.append(plot)
-            else:
-                self.lines[i].set_data(pos=selected_path[:,[2,3]])
-            self.add_vectors(is_init, selected_path, color, i, selected_paths[i][1])
+                friend_vector = numpy.asarray([point[0:2], nearest_frined[2]]) if nearest_frined else numpy.asarray([[0,0],[0,0]])
+                self.vectors[i][p_i][0].set_data(pos=friend_vector, arrows=friend_vector.reshape(1,4))
+                self.vectors[i][p_i][0].transform.reset()
+                self.vectors[i][p_i][0].transform.translate((selected_path[0][0:2] * -1))
+                self.vectors[i][p_i][0].transform.translate(numpy.asarray(self.canvas.size) / 2)
+                enemy_vector = numpy.asarray([point[0:2], nearest_enemy[2]]) if nearest_enemy else numpy.asarray([[0,0],[0,0]])
+                self.vectors[i][p_i][1].set_data(pos=enemy_vector, arrows=enemy_vector.reshape(1,4))
 
 
-        if is_init:
-            # center only if first
-            x_min = numpy.amin(paths[:,2])
-            x_max = numpy.amax(paths[:,2])
-            y_min = numpy.amin(paths[:,3])
-            y_max = numpy.amax(paths[:,3])
-            self.view.camera.set_range((x_min - MARGIN, x_max + MARGIN), (y_min - MARGIN, y_max + MARGIN))
-            is_init = False
+    def draw_current_path_advance(self, ev):
 
-    # vector distance calculators
+        selected_paths = self.paths_data.get_paths()
 
-    def vector_from_offset(self, selected_path, point, idx):
-        if idx == 0: vector_distance = math.hypot(point[6], point[8])
-        else: vector_distance = math.hypot(point[2] - selected_path[idx-1][2], point[3] - selected_path[idx-1][3])
-        return(vector_distance, (point[2], point[3]), point[4])
+        for i in range(self.params.TOP_PATHS_NUMBER):
+            if i >= len(selected_paths):
+                # clear and skip
+                self.lines[i].set_data(pos=numpy.asarray([[0,0],[0,0]]))
+                continue
 
+            current = selected_paths[i][4]
+            draw_to = self.params.MOVE_ALONG_STEP_SIZE
 
-        
+            if i == 0:
+                draw_to += self.paths_data.advance_point
+                #marker_point = current[self.paths_data.advance_point][0:2]
+                marker_point = selected_paths[i][3]
+                # append short history
+                if selected_paths[i][1] > 0 and len(self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1] - 1]) > 0:
+                    current = numpy.concatenate((self.paths_data.segments[selected_paths[i][2]][selected_paths[i][1] - 1][-self.params.MOVE_ALONG_STEP_SIZE/3:], current))
+
+            current = current[0:draw_to]
+
+            self.lines[i].set_data(pos=current[:,[0,1]])
+            self.lines[i].transform.reset()
+            self.lines[i].transform.translate((selected_paths[i][3] * -1))
+            self.lines[i].transform.translate(self.paths_data.player_position)
+            # to have [0,0] in the screen center
+            self.lines[i].transform.translate(numpy.asarray(self.canvas.size) / 2)
+
+            if i == 0:
+                self.marker.set_data(pos=numpy.asarray([marker_point]), face_color=self.colors[i], size=15)
+                self.marker.transform = self.lines[i].transform
+
 
     def process(self, _):
         return
 
+
     def run(self):
         self.timer = vispy.app.Timer(interval=1.0 / 30.0)
-        self.timer.connect(self.draw_path)
-        self.timer.start()
+        if self.example_idx == 0:
+            self.timer.connect(self.draw_vector)
+        elif self.example_idx == 1:
+            self.timer.connect(self.draw_closest_with_team_vectors)
+        elif self.example_idx == 2 or self.example_idx == 3:
+            self.timer.connect(self.draw_current_path_advance)
+        self.timer.start(0.5) # 30 FPS
         vispy.app.run()
 
 
 if __name__ == "__main__":
     vispy.set_log_level('WARNING')
     vispy.use(app='glfw')
-    
-    app = Application()
+
+    import argparse
+    parser = argparse.ArgumentParser(description='nucl.ai16')
+    parser.add_argument('-e','--example', help='Description for foo argument', default=0, type=int)
+    args = parser.parse_args()
+    app = Application(args.example)
     app.run()
