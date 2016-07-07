@@ -61,7 +61,7 @@ You’ll be using a Python 3.x instance in a virtual environment. This means it�
 1. **Download the repository —** In your home folder, `git clone [url]; cd nuclai16`
 2. **virtualenv —** To setup local Python type `/usr/local/bin/python3 -m venv --system-site-packages pyvenv` into your console.
 3. **Activate —** For bash, use source pyvenv/bin/activate to use the local version of Python 3.x.
-4. **Setup pip —** Run python -m pip install pip --ignore-installed to work around [this bug](http://bugs.python.org/issue24875).
+4. **Setup pip —** Run `python -m pip install pip --ignore-installed` to work around [this bug](http://bugs.python.org/issue24875).
 
 ### Linux 
 
@@ -82,5 +82,5 @@ You’ll be using a Python 3.x instance in a virtual environment. This means it�
 
 1. **Download the repository —** In your home folder, `git clone [url]; cd nuclai16`
 2. **virtualenv —** To setup local Python type `python3 -m venv --system-site-packages pyvenv` into your console.
-3. **Activate —** For bash, use source pyvenv/bin/activate to use the local version of Python 3.x.
+3. **Activate —** For bash, use `source pyvenv/bin/activate` to use the local version of Python 3.x.
 4. **Setup pip —** Run python -m pip install pip --ignore-installed to work around [this bug](http://bugs.python.org/issue24875).
