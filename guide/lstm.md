@@ -12,4 +12,6 @@ You need to install [Theano](http://deeplearning.net/software/theano/install.htm
 
 To install keras follow the official [documentation](http://keras.io/#installation)
 
+### Running the visualization
+
 ...
