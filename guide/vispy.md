@@ -6,7 +6,7 @@ This repository contains the source code and data to participate in the workshop
 
 1. **vispy —** In your virtual enviroment run `pip install -e git+https://github.com/vispy/vispy#egg=vispy-dev` to get the latest dev version.
 
-## Running the visualization
+## Running demos
 
 This directory packes together 4 demos.
 
